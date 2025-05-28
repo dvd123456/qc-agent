@@ -1,5 +1,94 @@
 import { type NextRequest, NextResponse } from "next/server"
-import type { Project, CreateProjectInput } from "@/types/project"
+import type { Project, CreateProjectInput, TestCase } from "@/types/project"
+
+// Mock test cases data
+const mockTestCases: TestCase[] = [
+  {
+    id: "tc_001",
+    testName: "User Login Validation",
+    description: "Verify user can login with valid credentials",
+    status: "passed",
+    priority: "high",
+    category: "Authentication",
+    executionTime: "2.3s",
+    lastRun: new Date().toISOString(),
+    expectedResult: "User successfully logged in and redirected to dashboard",
+    actualResult: "User successfully logged in and redirected to dashboard",
+    steps: [
+      "Navigate to login page",
+      "Enter valid username and password",
+      "Click login button",
+      "Verify dashboard is displayed",
+    ],
+  },
+  {
+    id: "tc_002",
+    testName: "File Upload Functionality",
+    description: "Test file upload with various file types",
+    status: "failed",
+    priority: "high",
+    category: "File Management",
+    executionTime: "5.7s",
+    lastRun: new Date().toISOString(),
+    expectedResult: "Files uploaded successfully with progress indicator",
+    actualResult: "Upload failed for files larger than 10MB",
+    steps: [
+      "Select files from file picker",
+      "Drag and drop files to upload area",
+      "Monitor upload progress",
+      "Verify files appear in file list",
+    ],
+  },
+  {
+    id: "tc_003",
+    testName: "Data Validation Rules",
+    description: "Verify form validation for required fields",
+    status: "warning",
+    priority: "medium",
+    category: "Data Validation",
+    executionTime: "1.8s",
+    lastRun: new Date().toISOString(),
+    expectedResult: "Validation errors displayed for empty required fields",
+    actualResult: "Some validation messages are not user-friendly",
+    steps: ["Open project creation form", "Leave required fields empty", "Submit form", "Check validation messages"],
+  },
+  {
+    id: "tc_004",
+    testName: "API Response Time",
+    description: "Verify API responses are within acceptable limits",
+    status: "passed",
+    priority: "medium",
+    category: "Performance",
+    executionTime: "0.9s",
+    lastRun: new Date().toISOString(),
+    expectedResult: "API responses under 2 seconds",
+    actualResult: "Average response time: 1.2 seconds",
+    steps: [
+      "Send API request to /api/projects",
+      "Measure response time",
+      "Verify response format",
+      "Check data integrity",
+    ],
+  },
+  {
+    id: "tc_005",
+    testName: "Mobile Responsiveness",
+    description: "Test UI elements on mobile devices",
+    status: "pending",
+    priority: "low",
+    category: "UI/UX",
+    executionTime: "N/A",
+    lastRun: "Not executed",
+    expectedResult: "UI elements properly scaled and accessible on mobile",
+    actualResult: "Test not yet executed",
+    steps: [
+      "Open application on mobile device",
+      "Test navigation menu",
+      "Verify button sizes and spacing",
+      "Check text readability",
+    ],
+  },
+]
 
 // Mock data storage (in a real app, this would be a database)
 const mockProjects: Project[] = [
@@ -11,7 +100,7 @@ const mockProjects: Project[] = [
       startDate: "2024-01-15",
       endDate: "2024-04-15",
     },
-    testCase: { hasTestCases: true, count: 12 },
+    testCase: mockTestCases.slice(0, 3), // First 3 test cases
     createdAt: "2024-01-10T10:00:00Z",
     updatedAt: "2024-01-28T15:30:00Z",
     status: "active",
@@ -26,7 +115,7 @@ const mockProjects: Project[] = [
       startDate: "2024-02-01",
       endDate: "2024-05-01",
     },
-    testCase: { hasTestCases: true, count: 8 },
+    testCase: mockTestCases.slice(1, 4), // Test cases 2-4
     createdAt: "2024-01-25T09:00:00Z",
     updatedAt: "2024-02-10T11:20:00Z",
     status: "active",
@@ -41,7 +130,7 @@ const mockProjects: Project[] = [
       startDate: "2023-11-01",
       endDate: "2024-02-01",
     },
-    testCase: { hasTestCases: true, count: 20 },
+    testCase: mockTestCases, // All test cases
     createdAt: "2023-10-20T14:00:00Z",
     updatedAt: "2024-02-01T16:45:00Z",
     status: "completed",
@@ -123,7 +212,7 @@ export async function POST(request: NextRequest) {
         startDate,
         endDate,
       },
-      testCase: { hasTestCases: false, count: 0 },
+      testCase: [], // Empty array for new projects
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       status: "active",

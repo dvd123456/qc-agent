@@ -5,13 +5,12 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Send, Bot, User, Lightbulb } from "lucide-react"
-import { TypingEffect } from "@/components/typing-effect"
+import { Send, Bot, User, Settings, Sparkles } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { TypingEffect } from "./typing-effect"
 
 interface Message {
-  id: string
+  id?: string
   role: "user" | "assistant"
   content: string
   timestamp: string
@@ -20,251 +19,269 @@ interface Message {
 
 interface ChatInterfaceProps {
   projectId: string
-  projectName: string
 }
 
-export function ChatInterface({ projectId, projectName }: ChatInterfaceProps) {
+// 10 predefined questions for QC projects
+const PREDEFINED_QUESTIONS = [
+  "What are the current issues in this project?",
+  "How is the project progress looking?",
+  "What files still need to be uploaded?",
+  "Are we on track to meet the deadline?",
+  "What should be the next priority?",
+  "Show me recent project activities",
+  "What quality metrics should I focus on?",
+  "How can I improve the testing process?",
+  "What are the biggest risks right now?",
+  "When should we schedule the next review?",
+]
+
+export function ChatInterface({ projectId }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [isTyping, setIsTyping] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
+  const [typingSpeed, setTypingSpeed] = useState(30)
+  const [completedMessages, setCompletedMessages] = useState<Set<string>>(new Set())
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
-
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages, isTyping])
-
+  // Initialize with welcome message
   useEffect(() => {
     // Load chat history from localStorage
     const savedMessages = localStorage.getItem(`chat_${projectId}`)
     if (savedMessages) {
       try {
-        setMessages(JSON.parse(savedMessages))
+        const parsed = JSON.parse(savedMessages)
+        setMessages(parsed)
+        // Mark all messages as completed for typing effect
+        const completedIds = new Set<string>()
+        parsed.forEach((msg: Message, index: number) => {
+          completedIds.add(msg.id || `msg-${index}`)
+        })
+        setCompletedMessages(completedIds)
       } catch (error) {
         console.error("Failed to load chat history:", error)
       }
-    } else {
-      // Add welcome message
+    }
+
+    // If no saved messages, add welcome message
+    if (!savedMessages) {
       const welcomeMessage: Message = {
         id: "welcome",
         role: "assistant",
-        content: `Hello! I'm QC Agent AI, your quality control assistant for the project "${projectName}". How can I help you today?`,
+        content: `Hello! I'm your QC Agent AI assistant for Project ${projectId}. I can help you with quality control analysis, progress tracking, and issue resolution. How can I assist you today?`,
         timestamp: new Date().toISOString(),
-        suggestions: ["How can I improve test coverage?", "What are the best QC practices?"],
+        suggestions: PREDEFINED_QUESTIONS.slice(0, 6),
       }
       setMessages([welcomeMessage])
+      setCompletedMessages(new Set(["welcome"]))
     }
-  }, [projectId, projectName])
+  }, [projectId])
 
-  // Save messages to localStorage whenever messages change
+  // Save messages to localStorage whenever they change
   useEffect(() => {
     if (messages.length > 0) {
       localStorage.setItem(`chat_${projectId}`, JSON.stringify(messages))
     }
   }, [messages, projectId])
 
-  const handleSendMessage = async (messageText?: string) => {
-    const messageToSend = messageText || input.trim()
-    if (!messageToSend || isLoading) return
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
 
-    setInput("")
-    setIsLoading(true)
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
 
-    // Add user message
+  const handleTypingComplete = (messageId: string) => {
+    setCompletedMessages((prev) => new Set([...prev, messageId]))
+  }
+
+  const sendMessage = async (messageText: string) => {
+    if (!messageText.trim()) return
+
     const userMessage: Message = {
-      id: `user_${Date.now()}`,
+      id: `user-${Date.now()}`,
       role: "user",
-      content: messageToSend,
+      content: messageText,
       timestamp: new Date().toISOString(),
     }
 
     setMessages((prev) => [...prev, userMessage])
-    setIsTyping(true)
+    setInput("")
+    setIsLoading(true)
+    setError(null)
 
     try {
-      // Mock API call - simulate delay
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Mock AI response for demo
+      await new Promise((resolve) => setTimeout(resolve, 1000))
 
-      // Mock response
-      const mockResponse = {
-        success: true,
-        message: `Thank you for your question about "${messageToSend}". This is a mock response for project ${projectName}. In a real implementation, this would connect to an AI service to provide detailed quality control guidance and analysis.`,
-        suggestions: [
-          "How can I improve test coverage?",
-          "What are the best QC practices?",
-          "Show me project analytics",
-          "Help with test case creation",
-        ]
-          .filter((s) => !s.toLowerCase().includes(messageToSend.toLowerCase()))
-          .slice(0, 2),
-      }
-
-      if (mockResponse.success) {
-        const assistantMessage: Message = {
-          id: `assistant_${Date.now()}`,
-          role: "assistant",
-          content: mockResponse.message,
-          timestamp: new Date().toISOString(),
-          suggestions: mockResponse.suggestions,
-        }
-
-        setMessages((prev) => [...prev, assistantMessage])
-      }
-    } catch (error) {
-      console.error("Chat error:", error)
-      const errorMessage: Message = {
-        id: `error_${Date.now()}`,
+      const assistantMessage: Message = {
+        id: `assistant-${Date.now()}`,
         role: "assistant",
-        content:
-          "I apologize, but I'm having trouble responding right now. This is a demo version with mock responses. Please try again later.",
+        content: `I understand you're asking about "${messageText}". As your QC Agent AI, I can help you analyze this aspect of Project ${projectId}. Based on the current project status, here are some insights and recommendations for your quality control process.`,
         timestamp: new Date().toISOString(),
+        suggestions: PREDEFINED_QUESTIONS.slice(0, 2),
+      }
+
+      setMessages((prev) => [...prev, assistantMessage])
+    } catch (err) {
+      console.error("Chat error:", err)
+      setError(err instanceof Error ? err.message : "An error occurred")
+
+      const errorMessage: Message = {
+        id: `error-${Date.now()}`,
+        role: "assistant",
+        content: "Sorry, I encountered an error while processing your request. Please try again.",
+        timestamp: new Date().toISOString(),
+        suggestions: PREDEFINED_QUESTIONS.slice(0, 2),
       }
       setMessages((prev) => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
-      setIsTyping(false)
     }
   }
 
-  const handleSuggestionClick = (suggestion: string) => {
-    handleSendMessage(suggestion)
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    sendMessage(input)
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
-    }
+  const handleSuggestedQuestionClick = (question: string) => {
+    sendMessage(question)
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)]">
-      {/* Chat Header */}
-      <Card className="mb-4">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2">
-            <Bot className="h-5 w-5 text-primary" />
-            QC Agent AI - {projectName}
-            <Badge variant="outline" className="ml-auto">
-              Demo Mode
-            </Badge>
-          </CardTitle>
-        </CardHeader>
-      </Card>
+    <div className="flex flex-col h-full">
+      <div className="bg-muted/30 border-b px-4 py-2 flex items-center justify-between">
+        <div className="flex items-center">
+          <span className="text-sm font-medium">Chat Session: Project {projectId}</span>
+        </div>
+        <div className="text-xs text-muted-foreground">Demo Mode - Mock AI Responses</div>
+      </div>
 
-      {/* Messages */}
-      <Card className="flex-1 flex flex-col">
-        <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((message) => (
-            <div key={message.id} className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-              {message.role === "assistant" && (
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Bot className="h-4 w-4 text-primary" />
-                  </div>
-                </div>
-              )}
-
-              <div className={`max-w-[80%] ${message.role === "user" ? "order-1" : ""}`}>
-                <div
-                  className={`rounded-lg p-3 ${
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground ml-auto"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {message.role === "assistant" && message.id.includes("assistant_") ? (
-                    <TypingEffect text={message.content} speed={30} />
-                  ) : (
-                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                  )}
-                </div>
-
-                {/* Suggestions */}
-                {message.role === "assistant" && message.suggestions && message.suggestions.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Lightbulb className="h-3 w-3" />
-                      Suggestions:
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {message.suggestions.map((suggestion, index) => (
-                        <Button
-                          key={index}
-                          variant="outline"
-                          size="sm"
-                          className="text-xs h-7 px-2"
-                          onClick={() => handleSuggestionClick(suggestion)}
-                          disabled={isLoading}
-                        >
-                          {suggestion}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4">
+        <div className="max-w-3xl mx-auto space-y-4">
+          {messages.map((message, index) => (
+            <div key={message.id || index} className="space-y-4" data-message-id={message.id || index}>
+              <div
+                className={cn(
+                  "flex items-start gap-3 rounded-lg p-4",
+                  message.role === "user" ? "ml-auto bg-primary text-primary-foreground" : "bg-muted",
                 )}
-
-                <p className="text-xs text-muted-foreground mt-1">{new Date(message.timestamp).toLocaleTimeString()}</p>
+                style={{ maxWidth: "80%" }}
+              >
+                <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-background">
+                  {message.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                </div>
+                <div>
+                  <div className="text-sm">
+                    {message.role === "assistant" && !completedMessages.has(message.id || `msg-${index}`) ? (
+                      <TypingEffect
+                        text={message.content}
+                        speed={typingSpeed}
+                        onComplete={() => handleTypingComplete(message.id || `msg-${index}`)}
+                      />
+                    ) : (
+                      <span className="whitespace-pre-wrap">{message.content}</span>
+                    )}
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">{new Date(message.timestamp).toLocaleTimeString()}</div>
+                </div>
               </div>
 
-              {message.role === "user" && (
-                <div className="flex-shrink-0">
-                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-                    <User className="h-4 w-4 text-secondary-foreground" />
+              {/* Dynamic suggestions */}
+              {message.role === "assistant" &&
+                index === messages.length - 1 &&
+                completedMessages.has(message.id || `msg-${index}`) &&
+                message.suggestions && (
+                  <div className="ml-11 space-y-2">
+                    <div className="flex items-center text-xs text-muted-foreground mb-2">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      <span>Suggested questions</span>
+                    </div>
+                    {message.suggestions.map((question, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleSuggestedQuestionClick(question)}
+                        className="block w-full max-w-[80%] text-left px-4 py-2 text-sm rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors"
+                      >
+                        {question}
+                      </button>
+                    ))}
                   </div>
-                </div>
-              )}
+                )}
             </div>
           ))}
 
-          {/* Typing indicator */}
-          {isTyping && (
-            <div className="flex gap-3 justify-start">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Bot className="h-4 w-4 text-primary" />
-                </div>
+          {isLoading && (
+            <div className="flex items-start gap-3 rounded-lg p-4 bg-muted" style={{ maxWidth: "80%" }}>
+              <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-background">
+                <Bot className="h-4 w-4" />
               </div>
-              <div className="bg-muted rounded-lg p-3">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
-                  <div
-                    className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
-                    style={{ animationDelay: "0.1s" }}
-                  ></div>
-                  <div
-                    className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
-                    style={{ animationDelay: "0.2s" }}
-                  ></div>
-                </div>
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                <span className="text-sm text-muted-foreground">AI is thinking...</span>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div
+              className="flex items-start gap-3 rounded-lg p-4 bg-red-50 border border-red-200"
+              style={{ maxWidth: "80%" }}
+            >
+              <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-background">
+                <Bot className="h-4 w-4 text-red-500" />
+              </div>
+              <div>
+                <div className="text-sm text-red-700">Error occurred while processing your request</div>
+                <div className="mt-1 text-xs text-red-500">{error}</div>
               </div>
             </div>
           )}
 
           <div ref={messagesEndRef} />
-        </CardContent>
+        </div>
+      </div>
 
-        {/* Input */}
-        <div className="border-t p-4">
-          <div className="flex gap-2">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Ask me anything about your quality control project..."
-              disabled={isLoading}
-              className="flex-1"
-            />
-            <Button onClick={() => handleSendMessage()} disabled={isLoading || !input.trim()}>
-              <Send className="h-4 w-4" />
-            </Button>
+      <div className="border-t p-4">
+        <form onSubmit={handleSubmit} className="flex gap-2 max-w-3xl mx-auto">
+          <Input
+            placeholder="Ask about your project..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={isLoading}
+            className="border-primary/20 focus:border-primary"
+          />
+          <Button type="submit" disabled={isLoading || !input.trim()} className="btn-gradient text-white">
+            <Send className="h-4 w-4" />
+            <span className="sr-only">Send</span>
+          </Button>
+        </form>
+        <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground max-w-3xl mx-auto">
+          <div className="text-green-600">✅ Demo Mode - Local Storage</div>
+          <div className="flex items-center">
+            <Settings className="h-3 w-3 mr-1" />
+            <span>Typing Speed:</span>
+            <button
+              onClick={() => setTypingSpeed((prev) => Math.min(prev + 10, 100))}
+              className="ml-2 px-2 py-1 rounded hover:bg-primary/10"
+              title="Slower typing"
+            >
+              Slower
+            </button>
+            <button
+              onClick={() => setTypingSpeed((prev) => Math.max(prev - 10, 10))}
+              className="ml-1 px-2 py-1 rounded hover:bg-primary/10"
+              title="Faster typing"
+            >
+              Faster
+            </button>
+            <span className="ml-1">({typingSpeed}ms)</span>
           </div>
         </div>
-      </Card>
+      </div>
     </div>
   )
 }

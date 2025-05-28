@@ -6,26 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { X, CheckCircle, XCircle, AlertTriangle, Clock, FileText, Download, Eye } from 'lucide-react'
+import { X, CheckCircle, XCircle, AlertTriangle, Clock, FileText, Download, Eye } from "lucide-react"
+import type { TestCase } from "@/types/project"
 
 interface TestCasePreviewModalProps {
   isOpen: boolean
   onClose: () => void
   projectId: string
-}
-
-interface TestCase {
-  id?: string
-  testName: string
-  description: string
-  status: "passed" | "failed" | "pending" | "warning"
-  priority: "high" | "medium" | "low"
-  category: string
-  executionTime: string
-  lastRun: string
-  expectedResult: string
-  actualResult: string
-  steps: string[]
 }
 
 export function TestCasePreviewModal({ isOpen, onClose, projectId }: TestCasePreviewModalProps) {
@@ -45,20 +32,16 @@ export function TestCasePreviewModal({ isOpen, onClose, projectId }: TestCasePre
       setIsLoading(true)
       setError(null)
 
-      const response = await fetch(`/api/test-cases?projectId=${projectId}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
+      // Fetch project data to get test cases
+      const response = await fetch(`/api/projects/${projectId}`)
       const data = await response.json()
 
       if (!data.success) {
-        throw new Error(data.message || "Failed to load test cases")
+        throw new Error(data.message || "Failed to load project")
       }
 
-      setTestCases(data.data || [])
+      // Extract test cases from project data
+      setTestCases(data.data.testCase || [])
     } catch (error) {
       console.error("Failed to load test cases:", error)
       setError(error instanceof Error ? error.message : "Failed to load test cases")
@@ -142,7 +125,7 @@ export function TestCasePreviewModal({ isOpen, onClose, projectId }: TestCasePre
         {isLoading ? (
           <div className="flex justify-center items-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <span className="ml-2 text-muted-foreground">Loading test cases from MongoDB...</span>
+            <span className="ml-2 text-muted-foreground">Loading test cases...</span>
           </div>
         ) : error ? (
           <div className="text-center py-12">
@@ -222,56 +205,62 @@ export function TestCasePreviewModal({ isOpen, onClose, projectId }: TestCasePre
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Test ID</TableHead>
-                      <TableHead>Test Name</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Priority</TableHead>
-                      <TableHead>Execution Time</TableHead>
-                      <TableHead>Last Run</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {testCases.map((testCase) => (
-                      <TableRow key={testCase.id} className="hover:bg-muted/50">
-                        <TableCell className="font-medium">{testCase.id?.substring(0, 8)}</TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{testCase.testName}</p>
-                            <p className="text-sm text-muted-foreground">{testCase.description}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{testCase.category}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center space-x-2">
-                            {getStatusIcon(testCase.status)}
-                            <Badge className={getStatusColor(testCase.status)}>
-                              {testCase.status.charAt(0).toUpperCase() + testCase.status.slice(1)}
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getPriorityColor(testCase.priority)}>
-                            {testCase.priority.charAt(0).toUpperCase() + testCase.priority.slice(1)}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{testCase.executionTime}</TableCell>
-                        <TableCell className="text-sm">{testCase.lastRun}</TableCell>
-                        <TableCell>
-                          <Button variant="ghost" size="sm" onClick={() => setSelectedTestCase(testCase)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
+                {testCases.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No test cases found for this project.</p>
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Test ID</TableHead>
+                        <TableHead>Test Name</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Priority</TableHead>
+                        <TableHead>Execution Time</TableHead>
+                        <TableHead>Last Run</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {testCases.map((testCase) => (
+                        <TableRow key={testCase.id} className="hover:bg-muted/50">
+                          <TableCell className="font-medium">{testCase.id.substring(0, 8)}</TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{testCase.testName}</p>
+                              <p className="text-sm text-muted-foreground">{testCase.description}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{testCase.category}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              {getStatusIcon(testCase.status)}
+                              <Badge className={getStatusColor(testCase.status)}>
+                                {testCase.status.charAt(0).toUpperCase() + testCase.status.slice(1)}
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getPriorityColor(testCase.priority)}>
+                              {testCase.priority.charAt(0).toUpperCase() + testCase.priority.slice(1)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{testCase.executionTime}</TableCell>
+                          <TableCell className="text-sm">{testCase.lastRun}</TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm" onClick={() => setSelectedTestCase(testCase)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
               </CardContent>
             </Card>
 
@@ -294,7 +283,7 @@ export function TestCasePreviewModal({ isOpen, onClose, projectId }: TestCasePre
                         <div className="space-y-2 text-sm">
                           <div className="flex justify-between">
                             <span>Test ID:</span>
-                            <span className="font-medium">{selectedTestCase.id?.substring(0, 8)}</span>
+                            <span className="font-medium">{selectedTestCase.id.substring(0, 8)}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Category:</span>

@@ -6,12 +6,26 @@ export interface Project {
     startDate: string
     endDate: string
   }
-  testCase: any // Will reference test cases collection
+  testCase: TestCase[] // Array of test cases instead of any
   createdAt: string
   updatedAt: string
   status: "active" | "completed" | "pending"
   priority: "high" | "medium" | "low"
   userId?: string
+}
+
+export interface TestCase {
+  id: string
+  testName: string
+  description: string
+  status: "passed" | "failed" | "pending" | "warning"
+  priority: "high" | "medium" | "low"
+  category: string
+  executionTime: string
+  lastRun: string
+  expectedResult: string
+  actualResult: string
+  steps: string[]
 }
 
 export interface CreateProjectInput {
@@ -28,5 +42,5 @@ export interface UpdateProjectInput {
   endDate?: string
   status?: "active" | "completed" | "pending"
   priority?: "high" | "medium" | "low"
-  testCase?: any
+  testCase?: TestCase[]
 }
