@@ -33,7 +33,6 @@ export function DashboardClient() {
         throw new Error(data.message || "Failed to fetch projects")
       }
 
-      console.log("Projects loaded from MongoDB:", data.data)
       setProjects(data.data || [])
     } catch (error) {
       console.error("Failed to fetch projects:", error)
@@ -62,7 +61,7 @@ export function DashboardClient() {
         <div>
           <h1 className="text-4xl font-bold text-gradient mb-2">QC Agent AI</h1>
           <p className="text-muted-foreground text-lg">Manage and monitor your quality control projects</p>
-          <p className="text-xs text-muted-foreground mt-1">✅ Connected to MongoDB</p>
+          <p className="text-xs text-muted-foreground mt-1">✅ Demo Mode - Mock Data</p>
         </div>
         <div className="flex gap-4">
           <CreateProjectButton onProjectCreated={handleProjectCreated} />
@@ -86,7 +85,7 @@ export function DashboardClient() {
         <div className="flex justify-center py-12">
           <div className="flex items-center space-x-3">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-            <span className="text-lg text-muted-foreground">Loading projects from MongoDB...</span>
+            <span className="text-lg text-muted-foreground">Loading projects...</span>
           </div>
         </div>
       ) : (

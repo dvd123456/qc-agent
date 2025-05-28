@@ -1,55 +1,67 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getDatabase } from "@/lib/mongodb"
-import { Project, CreateProjectInput } from "@/lib/models/project"
-import { seedTestCasesForProject } from "@/lib/seed-data"
-import { ObjectId } from "mongodb"
+import { type NextRequest, NextResponse } from "next/server"
+import type { Project, CreateProjectInput } from "@/types/project"
+
+// Mock data storage (in a real app, this would be a database)
+const mockProjects: Project[] = [
+  {
+    id: "proj_001",
+    name: "Quality Control System V2",
+    metadata: {
+      description: "Comprehensive quality control system for manufacturing processes",
+      startDate: "2024-01-15",
+      endDate: "2024-04-15",
+    },
+    testCase: { hasTestCases: true, count: 12 },
+    createdAt: "2024-01-10T10:00:00Z",
+    updatedAt: "2024-01-28T15:30:00Z",
+    status: "active",
+    priority: "high",
+    userId: "user_001",
+  },
+  {
+    id: "proj_002",
+    name: "Automated Testing Framework",
+    metadata: {
+      description: "Development of automated testing framework for QC processes",
+      startDate: "2024-02-01",
+      endDate: "2024-05-01",
+    },
+    testCase: { hasTestCases: true, count: 8 },
+    createdAt: "2024-01-25T09:00:00Z",
+    updatedAt: "2024-02-10T11:20:00Z",
+    status: "active",
+    priority: "medium",
+    userId: "user_001",
+  },
+  {
+    id: "proj_003",
+    name: "Legacy System Migration",
+    metadata: {
+      description: "Migration of legacy QC systems to modern infrastructure",
+      startDate: "2023-11-01",
+      endDate: "2024-02-01",
+    },
+    testCase: { hasTestCases: true, count: 20 },
+    createdAt: "2023-10-20T14:00:00Z",
+    updatedAt: "2024-02-01T16:45:00Z",
+    status: "completed",
+    priority: "high",
+    userId: "user_002",
+  },
+]
 
 // GET - Fetch all projects
 export async function GET(request: NextRequest) {
   try {
-    const db = await getDatabase()
-    const projectsCollection = db.collection<Project>("projects")
-
-    // Get query parameters
-    const { searchParams } = new URL(request.url)
-    const userId = searchParams.get("userId") // Optional user filtering
-    const status = searchParams.get("status") // Optional status filtering
-
-    // Build query
-    const query: any = {}
-    if (userId) query.userId = userId
-    if (status) query.status = status
-
-    const projects = await projectsCollection
-      .find(query)
-      .sort({ createdAt: -1 }) // Sort by newest first
-      .toArray()
-
-    // Transform _id to id for frontend compatibility and flatten metadata
-    const transformedProjects = projects.map((project) => ({
-      id: project._id?.toString(),
-      name: project.name,
-      description: project.metadata.description,
-      startDate: project.metadata.startDate,
-      endDate: project.metadata.endDate,
-      createdAt: project.createdAt,
-      updatedAt: project.updatedAt,
-      status: project.status,
-      priority: project.priority,
-      userId: project.userId,
-      // Calculate progress based on dates
-      progress: calculateProgress(project.metadata.startDate, project.metadata.endDate),
-      filesUploaded: 0, // Default values for UI compatibility
-      totalFiles: 0,
-      team: ["Current User"], // Default team
-    }))
+    // Simulate API delay
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
     return NextResponse.json(
       {
         success: true,
         message: "Projects fetched successfully",
-        data: transformedProjects,
-        count: transformedProjects.length,
+        data: mockProjects,
+        count: mockProjects.length,
       },
       { status: 200 },
     )
@@ -96,18 +108,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const db = await getDatabase()
-    const projectsCollection = db.collection<Project>("projects")
+    // Simulate API delay
+    await new Promise((resolve) => setTimeout(resolve, 1000))
 
     // Create new project with the new structure
-    const newProject: Omit<Project, "_id"> = {
+    const newProject: Project = {
+      id: `proj_${Date.now()}`,
       name,
       metadata: {
         description: description || "",
         startDate,
         endDate,
       },
-      testCase: null, // Will be populated when test cases are created
+      testCase: { hasTestCases: false, count: 0 },
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       status: "active",
@@ -115,44 +128,14 @@ export async function POST(request: NextRequest) {
       userId: "current_user_id", // In real app, get from auth token
     }
 
-    const result = await projectsCollection.insertOne(newProject)
-    const projectId = result.insertedId.toString()
-
-    // Seed test cases for the new project
-    await seedTestCasesForProject(projectId)
-
-    // Update project with test case reference
-    await projectsCollection.updateOne(
-      { _id: result.insertedId },
-      {
-        $set: {
-          testCase: { hasTestCases: true, count: 8 }, // Reference to test cases
-          updatedAt: new Date().toISOString(),
-        },
-      },
-    )
-
-    const createdProject = {
-      id: projectId,
-      name,
-      description: description || "",
-      startDate,
-      endDate,
-      createdAt: newProject.createdAt,
-      updatedAt: new Date().toISOString(),
-      status: newProject.status,
-      priority: newProject.priority,
-      progress: calculateProgress(startDate, endDate),
-      filesUploaded: 0,
-      totalFiles: 0,
-      team: ["Current User"],
-    }
+    // Add to mock storage
+    mockProjects.unshift(newProject)
 
     return NextResponse.json(
       {
         success: true,
         message: "Project created successfully",
-        data: createdProject,
+        data: newProject,
       },
       { status: 201 },
     )

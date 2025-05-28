@@ -1,28 +1,64 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getDatabase } from "@/lib/mongodb"
-import { Project, UpdateProjectInput } from "@/lib/models/project"
-import { ObjectId } from "mongodb"
+import { type NextRequest, NextResponse } from "next/server"
+import type { Project, UpdateProjectInput } from "@/types/project"
+
+// Mock data (same as in route.ts)
+const mockProjects: Project[] = [
+  {
+    id: "proj_001",
+    name: "Quality Control System V2",
+    metadata: {
+      description: "Comprehensive quality control system for manufacturing processes",
+      startDate: "2024-01-15",
+      endDate: "2024-04-15",
+    },
+    testCase: { hasTestCases: true, count: 12 },
+    createdAt: "2024-01-10T10:00:00Z",
+    updatedAt: "2024-01-28T15:30:00Z",
+    status: "active",
+    priority: "high",
+    userId: "user_001",
+  },
+  {
+    id: "proj_002",
+    name: "Automated Testing Framework",
+    metadata: {
+      description: "Development of automated testing framework for QC processes",
+      startDate: "2024-02-01",
+      endDate: "2024-05-01",
+    },
+    testCase: { hasTestCases: true, count: 8 },
+    createdAt: "2024-01-25T09:00:00Z",
+    updatedAt: "2024-02-10T11:20:00Z",
+    status: "active",
+    priority: "medium",
+    userId: "user_001",
+  },
+  {
+    id: "proj_003",
+    name: "Legacy System Migration",
+    metadata: {
+      description: "Migration of legacy QC systems to modern infrastructure",
+      startDate: "2023-11-01",
+      endDate: "2024-02-01",
+    },
+    testCase: { hasTestCases: true, count: 20 },
+    createdAt: "2023-10-20T14:00:00Z",
+    updatedAt: "2024-02-01T16:45:00Z",
+    status: "completed",
+    priority: "high",
+    userId: "user_002",
+  },
+]
 
 // GET - Fetch specific project
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { id } = params
 
-    if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid project ID format",
-        },
-        { status: 400 },
-      )
-    }
+    // Simulate API delay
+    await new Promise((resolve) => setTimeout(resolve, 300))
 
-    const db = await getDatabase()
-    const projectsCollection = db.collection<Project>("projects")
-    const testCasesCollection = db.collection("test_cases")
-
-    const project = await projectsCollection.findOne({ _id: new ObjectId(id) })
+    const project = mockProjects.find((p) => p.id === id)
 
     if (!project) {
       return NextResponse.json(
@@ -34,42 +70,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       )
     }
 
-    // Get test case statistics
-    const testCaseStats = await testCasesCollection
-      .aggregate([
-        { $match: { projectId: id } },
-        {
-          $group: {
-            _id: "$status",
-            count: { $sum: 1 },
-          },
-        },
-      ])
-      .toArray()
-
-    const testCaseCount = await testCasesCollection.countDocuments({ projectId: id })
-
-    // Transform for frontend with additional details
-    const transformedProject = {
-      id: project._id?.toString(),
-      name: project.name,
-      description: project.metadata.description,
-      startDate: project.metadata.startDate,
-      endDate: project.metadata.endDate,
-      createdAt: project.createdAt,
-      updatedAt: project.updatedAt,
-      status: project.status,
-      priority: project.priority,
-      progress: calculateProgress(project.metadata.startDate, project.metadata.endDate),
-      filesUploaded: 0, // Default for UI compatibility
-      totalFiles: 0,
-      team: ["Current User"],
+    // Add test case statistics for UI
+    const projectWithStats = {
+      ...project,
       testCases: {
-        total: testCaseCount,
-        stats: testCaseStats.reduce((acc, stat) => {
-          acc[stat._id] = stat.count
-          return acc
-        }, {} as Record<string, number>),
+        total: project.testCase?.count || 0,
+        stats: {
+          passed: Math.floor((project.testCase?.count || 0) * 0.7),
+          failed: Math.floor((project.testCase?.count || 0) * 0.2),
+          pending: Math.floor((project.testCase?.count || 0) * 0.1),
+        },
       },
     }
 
@@ -77,7 +87,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       {
         success: true,
         message: "Project fetched successfully",
-        data: transformedProject,
+        data: projectWithStats,
       },
       { status: 200 },
     )
@@ -100,13 +110,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const { id } = params
     const body: UpdateProjectInput = await request.json()
 
-    if (!ObjectId.isValid(id)) {
+    // Simulate API delay
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    const projectIndex = mockProjects.findIndex((p) => p.id === id)
+
+    if (projectIndex === -1) {
       return NextResponse.json(
         {
           success: false,
-          message: "Invalid project ID format",
+          message: "Project not found",
         },
-        { status: 400 },
+        { status: 404 },
       )
     }
 
@@ -125,67 +140,29 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       }
     }
 
-    const db = await getDatabase()
-    const projectsCollection = db.collection<Project>("projects")
-
-    // Prepare update data with new structure
-    const updateData: any = {
+    // Update project
+    const project = mockProjects[projectIndex]
+    const updatedProject: Project = {
+      ...project,
+      name: body.name || project.name,
+      metadata: {
+        description: body.description || project.metadata.description,
+        startDate: body.startDate || project.metadata.startDate,
+        endDate: body.endDate || project.metadata.endDate,
+      },
+      status: body.status || project.status,
+      priority: body.priority || project.priority,
+      testCase: body.testCase || project.testCase,
       updatedAt: new Date().toISOString(),
     }
 
-    // Update top-level fields
-    if (body.name) updateData.name = body.name
-    if (body.status) updateData.status = body.status
-    if (body.priority) updateData.priority = body.priority
-    if (body.testCase) updateData.testCase = body.testCase
-
-    // Update metadata fields
-    if (body.description || body.startDate || body.endDate) {
-      const project = await projectsCollection.findOne({ _id: new ObjectId(id) })
-      if (project) {
-        updateData.metadata = {
-          description: body.description || project.metadata.description,
-          startDate: body.startDate || project.metadata.startDate,
-          endDate: body.endDate || project.metadata.endDate,
-        }
-      }
-    }
-
-    const result = await projectsCollection.updateOne({ _id: new ObjectId(id) }, { $set: updateData })
-
-    if (result.matchedCount === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Project not found",
-        },
-        { status: 404 },
-      )
-    }
-
-    // Fetch updated project
-    const updatedProject = await projectsCollection.findOne({ _id: new ObjectId(id) })
-
-    const transformedProject = {
-      id: updatedProject?._id?.toString(),
-      name: updatedProject?.name,
-      description: updatedProject?.metadata.description,
-      startDate: updatedProject?.metadata.startDate,
-      endDate: updatedProject?.metadata.endDate,
-      createdAt: updatedProject?.createdAt,
-      updatedAt: updatedProject?.updatedAt,
-      status: updatedProject?.status,
-      priority: updatedProject?.priority,
-      progress: updatedProject
-        ? calculateProgress(updatedProject.metadata.startDate, updatedProject.metadata.endDate)
-        : 0,
-    }
+    mockProjects[projectIndex] = updatedProject
 
     return NextResponse.json(
       {
         success: true,
         message: "Project updated successfully",
-        data: transformedProject,
+        data: updatedProject,
       },
       { status: 200 },
     )
@@ -207,26 +184,12 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
   try {
     const { id } = params
 
-    if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Invalid project ID format",
-        },
-        { status: 400 },
-      )
-    }
+    // Simulate API delay
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
-    const db = await getDatabase()
-    const projectsCollection = db.collection<Project>("projects")
-    const testCasesCollection = db.collection("test_cases")
-    const chatMessagesCollection = db.collection("chat_messages")
-    const chatThreadsCollection = db.collection("chat_threads")
+    const projectIndex = mockProjects.findIndex((p) => p.id === id)
 
-    // Delete project
-    const projectResult = await projectsCollection.deleteOne({ _id: new ObjectId(id) })
-
-    if (projectResult.deletedCount === 0) {
+    if (projectIndex === -1) {
       return NextResponse.json(
         {
           success: false,
@@ -236,17 +199,13 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       )
     }
 
-    // Delete related data
-    await Promise.all([
-      testCasesCollection.deleteMany({ projectId: id }),
-      chatMessagesCollection.deleteMany({ projectId: id }),
-      chatThreadsCollection.deleteMany({ projectId: id }),
-    ])
+    // Remove project from mock storage
+    mockProjects.splice(projectIndex, 1)
 
     return NextResponse.json(
       {
         success: true,
-        message: "Project and related data deleted successfully",
+        message: "Project deleted successfully",
       },
       { status: 200 },
     )
@@ -261,18 +220,4 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       { status: 500 },
     )
   }
-}
-
-// Helper function to calculate progress based on dates
-function calculateProgress(startDate: string, endDate: string): number {
-  const start = new Date(startDate).getTime()
-  const end = new Date(endDate).getTime()
-  const current = new Date().getTime()
-
-  if (current < start) return 0
-  if (current > end) return 100
-
-  const totalDuration = end - start
-  const elapsed = current - start
-  return Math.round((elapsed / totalDuration) * 100)
 }

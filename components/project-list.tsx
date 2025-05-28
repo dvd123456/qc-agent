@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import type { Project } from "@/types/project"
 import { formatDate } from "@/lib/utils"
 import { Progress } from "@/components/ui/progress"
-import { Calendar, FileText, TrendingUp, Trash2 } from 'lucide-react'
+import { Calendar, FileText, TrendingUp, Trash2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useState } from "react"
 
@@ -110,7 +110,7 @@ export function ProjectList({ projects, onProjectDeleted }: ProjectListProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {projects.map((project) => {
-        const progress = calculateProgress(project.startDate, project.endDate)
+        const progress = calculateProgress(project.metadata.startDate, project.metadata.endDate)
         const isDeleting = deletingProjects.has(project.id!)
         return (
           <Card
@@ -146,21 +146,21 @@ export function ProjectList({ projects, onProjectDeleted }: ProjectListProps) {
             </CardHeader>
 
             <CardContent className="space-y-4 flex-grow">
-              <p className="text-sm text-muted-foreground line-clamp-2">{project.description}</p>
+              <p className="text-sm text-muted-foreground line-clamp-2">{project.metadata.description}</p>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="flex items-center space-x-2">
                   <Calendar className="h-3 w-3 text-primary" />
                   <div>
                     <p className="font-medium">Start</p>
-                    <p className="text-muted-foreground">{formatDate(project.startDate)}</p>
+                    <p className="text-muted-foreground">{formatDate(project.metadata.startDate)}</p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
                   <TrendingUp className="h-3 w-3 text-secondary" />
                   <div>
                     <p className="font-medium">End</p>
-                    <p className="text-muted-foreground">{formatDate(project.endDate)}</p>
+                    <p className="text-muted-foreground">{formatDate(project.metadata.endDate)}</p>
                   </div>
                 </div>
               </div>

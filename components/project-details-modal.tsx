@@ -18,17 +18,23 @@ interface ProjectDetailsModalProps {
 interface ProjectDetails {
   id: string
   name: string
-  description: string
-  startDate: string
-  endDate: string
+  metadata: {
+    description: string
+    startDate: string
+    endDate: string
+  }
   status: "active" | "completed" | "pending"
   progress: number
   filesUploaded: number
   totalFiles: number
   createdAt: string
-  lastModified: string
+  updatedAt: string
   team: string[]
   priority: "high" | "medium" | "low"
+  testCase: {
+    hasTestCases: boolean
+    count: number
+  }
 }
 
 export function ProjectDetailsModal({ isOpen, onClose, projectId, projectName }: ProjectDetailsModalProps) {
@@ -44,29 +50,51 @@ export function ProjectDetailsModal({ isOpen, onClose, projectId, projectName }:
   const fetchProjectDetails = async () => {
     setIsLoading(true)
 
-    // Simulate loading delay
-    setTimeout(() => {
-      // Mock project details
+    try {
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      const data = await response.json()
+
+      if (!data.success) {
+        throw new Error(data.message || "Failed to fetch project details")
+      }
+
+      setProjectDetails(data.data)
+    } catch (error) {
+      console.error("Failed to fetch project details:", error)
+      // Fallback to mock data if API fails
       const mockDetails: ProjectDetails = {
         id: projectId,
         name: projectName,
-        description:
-          "This is a comprehensive quality control project focused on ensuring high standards across all deliverables. The project includes automated testing, manual review processes, and continuous monitoring.",
-        startDate: "2024-01-15",
-        endDate: "2024-03-30",
+        metadata: {
+          description:
+            "This is a comprehensive quality control project focused on ensuring high standards across all deliverables. The project includes automated testing, manual review processes, and continuous monitoring.",
+          startDate: "2024-01-15",
+          endDate: "2024-03-30",
+        },
         status: "active",
         progress: 65,
         filesUploaded: 8,
         totalFiles: 12,
-        createdAt: "2024-01-10",
-        lastModified: "2024-01-28",
+        createdAt: "2024-01-10T10:00:00Z",
+        updatedAt: "2024-01-28T15:30:00Z",
         team: ["John Doe", "Jane Smith", "Mike Johnson", "Sarah Wilson"],
         priority: "high",
+        testCase: {
+          hasTestCases: true,
+          count: 12,
+        },
       }
 
       setProjectDetails(mockDetails)
+    } finally {
       setIsLoading(false)
-    }, 1000)
+    }
   }
 
   const getStatusColor = (status: string) => {
@@ -109,7 +137,7 @@ export function ProjectDetailsModal({ isOpen, onClose, projectId, projectName }:
         <DialogHeader className="flex flex-row items-center justify-between">
           <div>
             <DialogTitle className="text-2xl font-bold text-primary">Project Details</DialogTitle>
-            <DialogDescription>Comprehensive overview of your project (Mock Data)</DialogDescription>
+            <DialogDescription>Comprehensive overview of your project</DialogDescription>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="h-4 w-4" />
@@ -139,7 +167,7 @@ export function ProjectDetailsModal({ isOpen, onClose, projectId, projectName }:
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground">{projectDetails.description}</p>
+                <p className="text-muted-foreground">{projectDetails.metadata.description}</p>
               </CardContent>
             </Card>
 
@@ -151,7 +179,7 @@ export function ProjectDetailsModal({ isOpen, onClose, projectId, projectName }:
                     <Calendar className="h-5 w-5 text-primary" />
                     <div>
                       <p className="text-sm font-medium">Start Date</p>
-                      <p className="text-xs text-muted-foreground">{formatDate(projectDetails.startDate)}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(projectDetails.metadata.startDate)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -163,7 +191,7 @@ export function ProjectDetailsModal({ isOpen, onClose, projectId, projectName }:
                     <Target className="h-5 w-5 text-primary" />
                     <div>
                       <p className="text-sm font-medium">End Date</p>
-                      <p className="text-xs text-muted-foreground">{formatDate(projectDetails.endDate)}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(projectDetails.metadata.endDate)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -247,7 +275,7 @@ export function ProjectDetailsModal({ isOpen, onClose, projectId, projectName }:
                 <Separator />
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Last Modified</span>
-                  <span className="text-sm text-muted-foreground">{formatDate(projectDetails.lastModified)}</span>
+                  <span className="text-sm text-muted-foreground">{formatDate(projectDetails.updatedAt)}</span>
                 </div>
               </CardContent>
             </Card>
