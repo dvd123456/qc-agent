@@ -20,38 +20,55 @@ export function DashboardClient() {
       setIsLoading(true)
       setError(null)
 
+      console.log("Dashboard: Fetching projects...")
+
       const response = await fetch("/api/projects", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
         },
+        cache: "no-store", // Ensure fresh data
       })
 
+      console.log("Dashboard: Response status:", response.status)
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
       const data = await response.json()
+      console.log("Dashboard: Response data:", data)
 
       if (!data.success) {
         throw new Error(data.message || "Failed to fetch projects")
       }
 
-      setProjects(data.data || [])
+      const projectsData = data.data || []
+      console.log("Dashboard: Setting projects:", projectsData)
+      setProjects(projectsData)
     } catch (error) {
-      console.error("Failed to fetch projects:", error)
+      console.error("Dashboard: Failed to fetch projects:", error)
       setError(error instanceof Error ? error.message : "Failed to load projects")
+
+      // Set empty array as fallback
+      setProjects([])
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleLogout = () => {
-    // Just refresh projects for demo
+  const handleRefresh = () => {
+    console.log("Dashboard: Refreshing projects...")
     fetchProjects()
   }
 
   const handleProjectCreated = (newProject: Project) => {
+    console.log("Dashboard: New project created:", newProject)
     setProjects((prev) => [newProject, ...prev])
   }
 
   const handleProjectDeleted = (projectId: string) => {
+    console.log("Dashboard: Deleting project:", projectId)
     setProjects((prev) => prev.filter((p) => p.id !== projectId))
   }
 
@@ -65,7 +82,7 @@ export function DashboardClient() {
         </div>
         <div className="flex gap-4">
           <CreateProjectButton onProjectCreated={handleProjectCreated} />
-          <Button variant="outline" onClick={handleLogout} className="border-primary/20 hover:bg-primary/5">
+          <Button variant="outline" onClick={handleRefresh} className="border-primary/20 hover:bg-primary/5">
             Refresh Projects
           </Button>
         </div>
@@ -75,7 +92,7 @@ export function DashboardClient() {
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-red-700 font-medium">Error loading projects</p>
           <p className="text-red-600 text-sm">{error}</p>
-          <Button variant="outline" onClick={fetchProjects} className="mt-2" size="sm">
+          <Button variant="outline" onClick={handleRefresh} className="mt-2" size="sm">
             Try Again
           </Button>
         </div>
@@ -89,7 +106,12 @@ export function DashboardClient() {
           </div>
         </div>
       ) : (
-        <ProjectList projects={projects} onProjectDeleted={handleProjectDeleted} />
+        <div>
+          <div className="mb-4 text-sm text-muted-foreground">
+            Found {projects.length} project{projects.length !== 1 ? "s" : ""}
+          </div>
+          <ProjectList projects={projects} onProjectDeleted={handleProjectDeleted} />
+        </div>
       )}
     </div>
   )

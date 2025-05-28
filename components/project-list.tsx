@@ -1,25 +1,72 @@
 "use client"
 
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import type { Project } from "@/types/project"
-import { formatDate } from "@/lib/utils"
-import { Progress } from "@/components/ui/progress"
-import { Calendar, FileText, TrendingUp, Trash2 } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Calendar, FileText, MoreHorizontal, Eye, Upload, MessageSquare, Trash2 } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ProjectDetailsModal } from "@/components/project-details-modal"
+import type { Project } from "@/types/project"
+import Link from "next/link"
 
 interface ProjectListProps {
   projects: Project[]
-  onProjectDeleted?: (projectId: string) => void
+  onProjectDeleted: (projectId: string) => void
 }
 
 export function ProjectList({ projects, onProjectDeleted }: ProjectListProps) {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [deletingProjects, setDeletingProjects] = useState<Set<string>>(new Set())
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+
+  const handleViewDetails = (project: Project) => {
+    setSelectedProject(project)
+    setIsModalOpen(true)
+  }
+
+  const handleDeleteProject = async (projectId: string) => {
+    if (confirm("Are you sure you want to delete this project?")) {
+      try {
+        // In a real app, this would call the API
+        onProjectDeleted(projectId)
+      } catch (error) {
+        console.error("Failed to delete project:", error)
+      }
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "active":
+        return "bg-green-100 text-green-800"
+      case "completed":
+        return "bg-blue-100 text-blue-800"
+      case "pending":
+        return "bg-yellow-100 text-yellow-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "high":
+        return "bg-red-100 text-red-800"
+      case "medium":
+        return "bg-orange-100 text-orange-800"
+      case "low":
+        return "bg-green-100 text-green-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
 
   const calculateProgress = (startDate: string, endDate: string): number => {
     const start = new Date(startDate).getTime()
@@ -34,167 +81,120 @@ export function ProjectList({ projects, onProjectDeleted }: ProjectListProps) {
     return Math.round((elapsed / totalDuration) * 100)
   }
 
-  const getStatusColor = (progress: number) => {
-    if (progress === 100) return "bg-accent text-accent-foreground"
-    if (progress >= 70) return "bg-secondary text-secondary-foreground"
-    if (progress >= 30) return "bg-warning text-white"
-    return "bg-primary text-primary-foreground"
-  }
-
-  const getStatusText = (progress: number) => {
-    if (progress === 100) return "Completed"
-    if (progress >= 70) return "Near Completion"
-    if (progress >= 30) return "In Progress"
-    return "Getting Started"
-  }
-
-  const handleOpenProject = (projectId: string) => {
-    router.push(`/projects/${projectId}/chat`)
-  }
-
-  const handleDeleteProject = async (projectId: string, projectName: string) => {
-    if (!confirm(`Are you sure you want to delete "${projectName}"? This action cannot be undone.`)) {
-      return
-    }
-
-    setDeletingProjects((prev) => new Set([...prev, projectId]))
-
-    try {
-      const response = await fetch(`/api/projects/${projectId}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      const data = await response.json()
-
-      if (!data.success) {
-        throw new Error(data.message || "Failed to delete project")
-      }
-
-      toast({
-        title: "Project deleted",
-        description: `"${projectName}" has been deleted successfully.`,
-      })
-
-      onProjectDeleted?.(projectId)
-    } catch (error) {
-      console.error("Delete project error:", error)
-      toast({
-        title: "Failed to delete project",
-        description: error instanceof Error ? error.message : "An error occurred while deleting the project.",
-        variant: "destructive",
-      })
-    } finally {
-      setDeletingProjects((prev) => {
-        const newSet = new Set(prev)
-        newSet.delete(projectId)
-        return newSet
-      })
-    }
-  }
-
   if (projects.length === 0) {
     return (
-      <div className="text-center py-16">
-        <div className="glass-effect rounded-2xl p-8 max-w-md mx-auto">
-          <FileText className="h-16 w-16 text-primary mx-auto mb-4" />
-          <h2 className="text-2xl font-semibold text-gradient mb-2">No projects found</h2>
-          <p className="text-muted-foreground">Create your first quality control project to get started</p>
-        </div>
+      <div className="text-center py-12">
+        <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">No projects found</h3>
+        <p className="text-gray-500 mb-4">Get started by creating your first quality control project.</p>
       </div>
     )
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {projects.map((project) => {
-        const progress = calculateProgress(project.metadata.startDate, project.metadata.endDate)
-        const isDeleting = deletingProjects.has(project.id!)
-        return (
-          <Card
-            key={project.id}
-            className="glass-effect hover:shadow-card-hover transition-all duration-300 group flex flex-col h-full"
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <CardTitle className="text-lg group-hover:text-primary transition-colors">{project.name}</CardTitle>
-                  <CardDescription className="flex items-center mt-1">
-                    <Calendar className="h-3 w-3 mr-1" />
-                    Created {formatDate(project.createdAt)}
-                  </CardDescription>
+    <>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {projects.map((project) => {
+          const progress = calculateProgress(project.metadata.startDate, project.metadata.endDate)
+
+          return (
+            <Card key={project.id} className="hover:shadow-lg transition-shadow">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1 flex-1">
+                    <CardTitle className="text-lg line-clamp-1">{project.name}</CardTitle>
+                    <CardDescription className="line-clamp-2">{project.metadata.description}</CardDescription>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleViewDetails(project)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/projects/${project.id}/upload`}>
+                          <Upload className="mr-2 h-4 w-4" />
+                          Upload Files
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href={`/projects/${project.id}/chat`}>
+                          <MessageSquare className="mr-2 h-4 w-4" />
+                          Chat
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => project.id && handleDeleteProject(project.id)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="flex items-center gap-2">
-                  <Badge className={getStatusColor(progress)}>{getStatusText(progress)}</Badge>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleDeleteProject(project.id!, project.name)}
-                    disabled={isDeleting}
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                  >
-                    {isDeleting ? (
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-500"></div>
-                    ) : (
-                      <Trash2 className="h-3 w-3" />
-                    )}
+                  <Badge className={getStatusColor(project.status)}>{project.status}</Badge>
+                  <Badge variant="outline" className={getPriorityColor(project.priority)}>
+                    {project.priority} priority
+                  </Badge>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Progress</span>
+                    <span className="font-medium">{progress}%</span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">
+                      {new Date(project.metadata.startDate).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-muted-foreground">{project.testCase?.count || 0} test cases</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <Button variant="outline" size="sm" onClick={() => handleViewDetails(project)} className="flex-1">
+                    <Eye className="mr-2 h-4 w-4" />
+                    View
+                  </Button>
+                  <Button asChild size="sm" className="flex-1">
+                    <Link href={`/projects/${project.id}/chat`}>
+                      <MessageSquare className="mr-2 h-4 w-4" />
+                      Chat
+                    </Link>
                   </Button>
                 </div>
-              </div>
-            </CardHeader>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
 
-            <CardContent className="space-y-4 flex-grow">
-              <p className="text-sm text-muted-foreground line-clamp-2">{project.metadata.description}</p>
-
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="flex items-center space-x-2">
-                  <Calendar className="h-3 w-3 text-primary" />
-                  <div>
-                    <p className="font-medium">Start</p>
-                    <p className="text-muted-foreground">{formatDate(project.metadata.startDate)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="h-3 w-3 text-secondary" />
-                  <div>
-                    <p className="font-medium">End</p>
-                    <p className="text-muted-foreground">{formatDate(project.metadata.endDate)}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-medium flex items-center">
-                    <TrendingUp className="h-3 w-3 mr-1 text-primary" />
-                    Progress
-                  </span>
-                  <span className="font-semibold text-primary">{progress}%</span>
-                </div>
-                <div className="relative">
-                  <Progress value={progress} className="h-2" />
-                  <div
-                    className="absolute top-0 left-0 h-2 rounded-full progress-gradient transition-all duration-500"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
-            </CardContent>
-
-            <CardFooter className="pt-3 mt-auto">
-              <Button
-                className="w-full btn-gradient text-white font-medium"
-                onClick={() => handleOpenProject(project.id!)}
-                disabled={isDeleting}
-              >
-                Open Project
-              </Button>
-            </CardFooter>
-          </Card>
-        )
-      })}
-    </div>
+      <ProjectDetailsModal
+        project={selectedProject}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false)
+          setSelectedProject(null)
+        }}
+      />
+    </>
   )
 }

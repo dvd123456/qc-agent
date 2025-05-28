@@ -51,20 +51,21 @@ const mockProjects: Project[] = [
 ]
 
 // GET - Fetch all projects
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    console.log("API: Fetching projects...")
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Projects fetched successfully",
-        data: mockProjects,
-        count: mockProjects.length,
-      },
-      { status: 200 },
-    )
+    // Simulate API delay
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    console.log("API: Returning projects:", mockProjects)
+
+    return NextResponse.json({
+      success: true,
+      message: "Projects fetched successfully",
+      data: mockProjects,
+      count: mockProjects.length,
+    })
   } catch (error) {
     console.error("Get Projects Error:", error)
     return NextResponse.json(
@@ -72,6 +73,7 @@ export async function GET(request: NextRequest) {
         success: false,
         message: "Failed to fetch projects",
         error: error instanceof Error ? error.message : "Unknown error",
+        data: [],
       },
       { status: 500 },
     )
@@ -84,12 +86,15 @@ export async function POST(request: NextRequest) {
     const body: CreateProjectInput = await request.json()
     const { name, description, startDate, endDate } = body
 
+    console.log("API: Creating project with data:", body)
+
     // Validate required fields
     if (!name || !startDate || !endDate) {
       return NextResponse.json(
         {
           success: false,
           message: "Name, start date, and end date are required",
+          data: null,
         },
         { status: 400 },
       )
@@ -103,13 +108,11 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           message: "End date must be after start date",
+          data: null,
         },
         { status: 400 },
       )
     }
-
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1000))
 
     // Create new project with the new structure
     const newProject: Project = {
@@ -125,20 +128,19 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date().toISOString(),
       status: "active",
       priority: "medium",
-      userId: "current_user_id", // In real app, get from auth token
+      userId: "current_user_id",
     }
 
     // Add to mock storage
     mockProjects.unshift(newProject)
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Project created successfully",
-        data: newProject,
-      },
-      { status: 201 },
-    )
+    console.log("API: Project created successfully:", newProject)
+
+    return NextResponse.json({
+      success: true,
+      message: "Project created successfully",
+      data: newProject,
+    })
   } catch (error) {
     console.error("Create Project Error:", error)
     return NextResponse.json(
@@ -146,6 +148,7 @@ export async function POST(request: NextRequest) {
         success: false,
         message: "Failed to create project",
         error: error instanceof Error ? error.message : "Unknown error",
+        data: null,
       },
       { status: 500 },
     )
