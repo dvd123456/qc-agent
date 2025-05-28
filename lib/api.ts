@@ -7,36 +7,12 @@ interface ApiResponse<T> {
 }
 
 class ApiClient {
-  private token: string | null = null
-
-  constructor() {
-    this.token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null
-  }
-
-  private getBaseUrl(): string {
-    // Use environment variable if set, otherwise determine based on environment
-    if (process.env.NEXT_PUBLIC_API_URL) {
-      return process.env.NEXT_PUBLIC_API_URL
-    }
-
-    // Fallback for local development
-    if (typeof window !== "undefined") {
-      // Client-side: use current origin
-      return window.location.origin
-    }
-
-    // Server-side fallback
-    return process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000"
-  }
-
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-    const baseUrl = this.getBaseUrl()
-    const url = `${baseUrl}/api${endpoint}`
+    const url = `/api${endpoint}`
 
     const config: RequestInit = {
       headers: {
         "Content-Type": "application/json",
-        ...(this.token && { Authorization: `Bearer ${this.token}` }),
         ...options.headers,
       },
       ...options,
@@ -48,24 +24,13 @@ class ApiClient {
     }
 
     try {
-      console.log(`Making API request to: ${url}`)
-
       const response = await fetch(url, config)
-
-      // Check if response is HTML (404 page) instead of JSON
-      const contentType = response.headers.get("content-type")
-      if (!contentType || !contentType.includes("application/json")) {
-        console.error(`Invalid content type: ${contentType} for URL: ${url}`)
-        throw new Error(`API endpoint not found: ${url}`)
-      }
-
       const data = await response.json()
 
       if (!response.ok) {
         throw new Error(data.message || `HTTP error! status: ${response.status}`)
       }
 
-      console.log(`API response from ${url}:`, data)
       return data
     } catch (error) {
       console.error("API Error:", error)
@@ -75,20 +40,24 @@ class ApiClient {
 
   // Authentication
   async login(email: string, password: string) {
-    const response = await this.request<{ user: any; token: string }>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    })
-
-    if (response.success && response.data?.token) {
-      this.token = response.data.token
-      if (typeof window !== "undefined") {
-        localStorage.setItem("auth_token", response.data.token)
-        localStorage.setItem("user", JSON.stringify(response.data.user))
-      }
+    // Mock login - just store in localStorage
+    const mockUser = {
+      id: "user_123",
+      email: email,
+      name: "Demo User",
+      token: "mock_token_" + Date.now(),
     }
 
-    return response
+    if (typeof window !== "undefined") {
+      localStorage.setItem("isLoggedIn", "true")
+      localStorage.setItem("user", JSON.stringify(mockUser))
+    }
+
+    return {
+      success: true,
+      message: "Login successful",
+      data: { user: mockUser, token: mockUser.token },
+    }
   }
 
   // Projects
@@ -117,32 +86,47 @@ class ApiClient {
     })
   }
 
-  // Chat
+  // Chat - Mock implementation
   async sendMessage(message: string, projectId: string, conversationId?: string) {
-    return this.request<any>("/chat", {
-      method: "POST",
-      body: JSON.stringify({ message, projectId, conversationId }),
-    })
+    // Mock chat response
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
+    const mockResponse = {
+      success: true,
+      message: `Thank you for your question about "${message}". This is a mock response for project ${projectId}. In a real implementation, this would connect to an AI service.`,
+      suggestions: ["How can I improve test coverage?", "What are the best QC practices?"],
+    }
+
+    return mockResponse
   }
 
-  // Analytics
+  // Analytics - Mock implementation
   async getAnalytics(projectId?: string) {
-    const params = projectId ? `?projectId=${projectId}` : ""
-    return this.request<any>(`/analytics${params}`)
+    // Mock analytics data
+    await new Promise((resolve) => setTimeout(resolve, 500))
+
+    return {
+      success: true,
+      data: {
+        totalProjects: 3,
+        activeProjects: 2,
+        completedProjects: 1,
+        testCases: {
+          total: 40,
+          passed: 28,
+          failed: 8,
+          pending: 4,
+        },
+      },
+    }
   }
 
   // Logout
   logout() {
-    this.token = null
     if (typeof window !== "undefined") {
-      localStorage.removeItem("auth_token")
+      localStorage.removeItem("isLoggedIn")
       localStorage.removeItem("user")
     }
-  }
-
-  // Get current API base URL (for debugging)
-  getApiBaseUrl(): string {
-    return this.getBaseUrl()
   }
 }
 

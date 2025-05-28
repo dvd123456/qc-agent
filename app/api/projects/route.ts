@@ -151,17 +151,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
-// Helper function to calculate progress based on dates
-function calculateProgress(startDate: string, endDate: string): number {
-  const start = new Date(startDate).getTime()
-  const end = new Date(endDate).getTime()
-  const current = new Date().getTime()
-
-  if (current < start) return 0
-  if (current > end) return 100
-
-  const totalDuration = end - start
-  const elapsed = current - start
-  return Math.round((elapsed / totalDuration) * 100)
-}

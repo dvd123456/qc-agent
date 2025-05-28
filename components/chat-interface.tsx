@@ -5,13 +5,13 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Send, Bot, User, Settings, Sparkles, History } from 'lucide-react'
-import { cn } from "@/lib/utils"
-import { TypingEffect } from "./typing-effect"
-import { getOrCreateThreadId } from "@/lib/thread-manager"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Send, Bot, User, Lightbulb } from "lucide-react"
+import { TypingEffect } from "@/components/typing-effect"
 
 interface Message {
-  id?: string
+  id: string
   role: "user" | "assistant"
   content: string
   timestamp: string
@@ -20,347 +20,251 @@ interface Message {
 
 interface ChatInterfaceProps {
   projectId: string
+  projectName: string
 }
 
-// 10 predefined questions for QC projects
-const PREDEFINED_QUESTIONS = [
-  "What are the current issues in this project?",
-  "How is the project progress looking?",
-  "What files still need to be uploaded?",
-  "Are we on track to meet the deadline?",
-  "What should be the next priority?",
-  "Show me recent project activities",
-  "What quality metrics should I focus on?",
-  "How can I improve the testing process?",
-  "What are the biggest risks right now?",
-  "When should we schedule the next review?",
-]
-
-export function ChatInterface({ projectId }: ChatInterfaceProps) {
+export function ChatInterface({ projectId, projectName }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const chatContainerRef = useRef<HTMLDivElement>(null)
-  const [typingSpeed, setTypingSpeed] = useState(30)
-  const [completedMessages, setCompletedMessages] = useState<Set<string>>(new Set())
-  const [threadId, setThreadId] = useState<string>("")
-
-  // Initialize threadId and load chat history
-  useEffect(() => {
-    const currentThreadId = getOrCreateThreadId(projectId)
-    setThreadId(currentThreadId)
-    loadChatHistory(projectId, currentThreadId)
-  }, [projectId])
-
-  const loadChatHistory = async (projectId: string, threadId: string) => {
-    try {
-      setIsLoadingHistory(true)
-      setError(null)
-
-      const response = await fetch(`/api/chat/history?projectId=${projectId}&threadId=${threadId}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-
-      const data = await response.json()
-
-      if (!data.success) {
-        throw new Error(data.message || "Failed to load chat history")
-      }
-
-      if (data.data && data.data.length > 0) {
-        setMessages(data.data)
-        // Mark all messages as completed for typing effect
-        const completedIds = new Set<string>()
-        data.data.forEach((msg: Message) => {
-          if (msg.id) completedIds.add(msg.id)
-        })
-        setCompletedMessages(completedIds)
-      } else {
-        // No history, add welcome message
-        setMessages([
-          {
-            role: "assistant",
-            content: `Hello! I'm your QC Agent AI assistant for Project ${projectId}. I have access to your project details and can help you with quality control analysis, progress tracking, and issue resolution. How can I assist you today?`,
-            timestamp: new Date().toISOString(),
-            suggestions: PREDEFINED_QUESTIONS.slice(0, 6), // Show first 6 as initial suggestions
-          },
-        ])
-      }
-    } catch (error) {
-      console.error("Failed to load chat history:", error)
-      setError(error instanceof Error ? error.message : "Failed to load chat history")
-      
-      // Fallback welcome message
-      setMessages([
-        {
-          role: "assistant",
-          content: `Hello! I'm your QC Agent AI assistant for Project ${projectId}. I have access to your project details and can help you with quality control analysis, progress tracking, and issue resolution. How can I assist you today?`,
-          timestamp: new Date().toISOString(),
-          suggestions: PREDEFINED_QUESTIONS.slice(0, 6), // Show first 6 as initial suggestions
-        },
-      ])
-    } finally {
-      setIsLoadingHistory(false)
-    }
-  }
-
-  useEffect(() => {
-    if (!isLoadingHistory) {
-      scrollToBottom()
-    }
-  }, [messages, isLoadingHistory])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
 
-  const scrollToShowUserMessage = (messageId: string) => {
-    setTimeout(() => {
-      const messageElement = document.querySelector(`[data-message-id="${messageId}"]`)
-      if (messageElement && chatContainerRef.current) {
-        const container = chatContainerRef.current
-        const messageTop = messageElement.offsetTop
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages, isTyping])
 
-        container.scrollTo({
-          top: messageTop - 20,
-          behavior: "smooth",
-        })
+  useEffect(() => {
+    // Load chat history from localStorage
+    const savedMessages = localStorage.getItem(`chat_${projectId}`)
+    if (savedMessages) {
+      try {
+        setMessages(JSON.parse(savedMessages))
+      } catch (error) {
+        console.error("Failed to load chat history:", error)
       }
-    }, 100)
-  }
+    } else {
+      // Add welcome message
+      const welcomeMessage: Message = {
+        id: "welcome",
+        role: "assistant",
+        content: `Hello! I'm QC Agent AI, your quality control assistant for the project "${projectName}". How can I help you today?`,
+        timestamp: new Date().toISOString(),
+        suggestions: ["How can I improve test coverage?", "What are the best QC practices?"],
+      }
+      setMessages([welcomeMessage])
+    }
+  }, [projectId, projectName])
 
-  const handleTypingComplete = (messageId: string) => {
-    setCompletedMessages((prev) => new Set([...prev, messageId]))
-  }
+  // Save messages to localStorage whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(`chat_${projectId}`, JSON.stringify(messages))
+    }
+  }, [messages, projectId])
 
-  const sendMessage = async (messageText: string) => {
-    if (!messageText.trim() || !threadId) return
+  const handleSendMessage = async (messageText?: string) => {
+    const messageToSend = messageText || input.trim()
+    if (!messageToSend || isLoading) return
 
+    setInput("")
+    setIsLoading(true)
+
+    // Add user message
     const userMessage: Message = {
+      id: `user_${Date.now()}`,
       role: "user",
-      content: messageText,
+      content: messageToSend,
       timestamp: new Date().toISOString(),
     }
 
-    const userMessageId = `temp-${Date.now()}`
-
-    setMessages((prev) => [...prev, { ...userMessage, id: userMessageId }])
-    setInput("")
-    setIsLoading(true)
-    setError(null)
-
-    // Scroll to show user message
-    scrollToShowUserMessage(userMessageId)
+    setMessages((prev) => [...prev, userMessage])
+    setIsTyping(true)
 
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: messageText,
-          projectId,
-          threadId,
-        }),
-      })
+      // Mock API call - simulate delay
+      await new Promise((resolve) => setTimeout(resolve, 1500))
 
-      const data = await response.json()
-
-      if (!data.success) {
-        throw new Error(data.error || "Failed to get response")
+      // Mock response
+      const mockResponse = {
+        success: true,
+        message: `Thank you for your question about "${messageToSend}". This is a mock response for project ${projectName}. In a real implementation, this would connect to an AI service to provide detailed quality control guidance and analysis.`,
+        suggestions: [
+          "How can I improve test coverage?",
+          "What are the best QC practices?",
+          "Show me project analytics",
+          "Help with test case creation",
+        ]
+          .filter((s) => !s.toLowerCase().includes(messageToSend.toLowerCase()))
+          .slice(0, 2),
       }
 
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: data.message,
-        timestamp: new Date().toISOString(),
-        suggestions: data.suggestions || [],
+      if (mockResponse.success) {
+        const assistantMessage: Message = {
+          id: `assistant_${Date.now()}`,
+          role: "assistant",
+          content: mockResponse.message,
+          timestamp: new Date().toISOString(),
+          suggestions: mockResponse.suggestions,
+        }
+
+        setMessages((prev) => [...prev, assistantMessage])
       }
-
-      // Replace the temporary user message and add the assistant message
-      setMessages((prev) =>
-        prev.map((msg) => (msg.id === userMessageId ? { ...msg, id: undefined } : msg)).concat(assistantMessage),
-      )
-    } catch (err) {
-      console.error("Chat error:", err)
-      setError(err instanceof Error ? err.message : "An error occurred")
-
-      // Add error message to chat
+    } catch (error) {
+      console.error("Chat error:", error)
       const errorMessage: Message = {
+        id: `error_${Date.now()}`,
         role: "assistant",
-        content: "Sorry, I encountered an error while processing your request. Please try again.",
+        content:
+          "I apologize, but I'm having trouble responding right now. This is a demo version with mock responses. Please try again later.",
         timestamp: new Date().toISOString(),
-        suggestions: PREDEFINED_QUESTIONS.slice(0, 2), // Fallback suggestions
       }
       setMessages((prev) => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
+      setIsTyping(false)
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    sendMessage(input)
+  const handleSuggestionClick = (suggestion: string) => {
+    handleSendMessage(suggestion)
   }
 
-  const handleSuggestedQuestionClick = (question: string) => {
-    sendMessage(question)
-  }
-
-  if (isLoadingHistory) {
-    return (
-      <div className="flex justify-center items-center h-full">
-        <div className="flex items-center space-x-3">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <span className="text-lg text-muted-foreground">Loading chat history...</span>
-        </div>
-      </div>
-    )
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
+    }
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="bg-muted/30 border-b px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center">
-          <History className="h-4 w-4 mr-2 text-primary" />
-          <span className="text-sm font-medium">Thread ID: {threadId}</span>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          Session expires in 60 minutes of inactivity
-        </div>
-      </div>
-      
-      <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-3xl mx-auto space-y-4">
-          {messages.map((message, index) => (
-            <div key={message.id || index} className="space-y-4" data-message-id={message.id || index}>
-              <div
-                className={cn(
-                  "flex items-start gap-3 rounded-lg p-4",
-                  message.role === "user" ? "ml-auto bg-primary text-primary-foreground" : "bg-muted",
+    <div className="flex flex-col h-[calc(100vh-12rem)]">
+      {/* Chat Header */}
+      <Card className="mb-4">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2">
+            <Bot className="h-5 w-5 text-primary" />
+            QC Agent AI - {projectName}
+            <Badge variant="outline" className="ml-auto">
+              Demo Mode
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+      </Card>
+
+      {/* Messages */}
+      <Card className="flex-1 flex flex-col">
+        <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+          {messages.map((message) => (
+            <div key={message.id} className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+              {message.role === "assistant" && (
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Bot className="h-4 w-4 text-primary" />
+                  </div>
+                </div>
+              )}
+
+              <div className={`max-w-[80%] ${message.role === "user" ? "order-1" : ""}`}>
+                <div
+                  className={`rounded-lg p-3 ${
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground ml-auto"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {message.role === "assistant" && message.id.includes("assistant_") ? (
+                    <TypingEffect text={message.content} speed={30} />
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  )}
+                </div>
+
+                {/* Suggestions */}
+                {message.role === "assistant" && message.suggestions && message.suggestions.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Lightbulb className="h-3 w-3" />
+                      Suggestions:
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {message.suggestions.map((suggestion, index) => (
+                        <Button
+                          key={index}
+                          variant="outline"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => handleSuggestionClick(suggestion)}
+                          disabled={isLoading}
+                        >
+                          {suggestion}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
                 )}
-                style={{ maxWidth: "80%" }}
-              >
-                <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-background">
-                  {message.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-                </div>
-                <div>
-                  <div className="text-sm">
-                    {message.role === "assistant" && !completedMessages.has(message.id || `msg-${index}`) ? (
-                      <TypingEffect
-                        text={message.content}
-                        speed={typingSpeed}
-                        onComplete={() => handleTypingComplete(message.id || `msg-${index}`)}
-                      />
-                    ) : (
-                      <span className="whitespace-pre-wrap">{message.content}</span>
-                    )}
-                  </div>
-                  <div className="mt-1 text-xs text-gray-500">
-                    {new Date(message.timestamp).toLocaleTimeString()}
-                  </div>
-                </div>
+
+                <p className="text-xs text-muted-foreground mt-1">{new Date(message.timestamp).toLocaleTimeString()}</p>
               </div>
 
-              {/* Dynamic suggestions - only show for the last assistant message and after typing is complete */}
-              {message.role === "assistant" &&
-                index === messages.length - 1 &&
-                completedMessages.has(message.id || `msg-${index}`) &&
-                message.suggestions && (
-                  <div className="ml-11 space-y-2">
-                    <div className="flex items-center text-xs text-muted-foreground mb-2">
-                      <Sparkles className="h-3 w-3 mr-1" />
-                      <span>AI-generated suggestions</span>
-                    </div>
-                    {message.suggestions.map((question, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleSuggestedQuestionClick(question)}
-                        className="block w-full max-w-[80%] text-left px-4 py-2 text-sm rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors"
-                      >
-                        {question}
-                      </button>
-                    ))}
+              {message.role === "user" && (
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                    <User className="h-4 w-4 text-secondary-foreground" />
                   </div>
-                )}
+                </div>
+              )}
             </div>
           ))}
 
-          {isLoading && (
-            <div className="flex items-start gap-3 rounded-lg p-4 bg-muted" style={{ maxWidth: "80%" }}>
-              <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-background">
-                <Bot className="h-4 w-4" />
+          {/* Typing indicator */}
+          {isTyping && (
+            <div className="flex gap-3 justify-start">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Bot className="h-4 w-4 text-primary" />
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                <span className="text-sm text-muted-foreground">AI is thinking...</span>
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div
-              className="flex items-start gap-3 rounded-lg p-4 bg-red-50 border border-red-200"
-              style={{ maxWidth: "80%" }}
-            >
-              <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-background">
-                <Bot className="h-4 w-4 text-red-500" />
-              </div>
-              <div>
-                <div className="text-sm text-red-700">Error occurred while processing your request</div>
-                <div className="mt-1 text-xs text-red-500">{error}</div>
+              <div className="bg-muted rounded-lg p-3">
+                <div className="flex space-x-1">
+                  <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
+                  <div
+                    className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
+                    style={{ animationDelay: "0.1s" }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
+                    style={{ animationDelay: "0.2s" }}
+                  ></div>
+                </div>
               </div>
             </div>
           )}
 
           <div ref={messagesEndRef} />
-        </div>
-      </div>
+        </CardContent>
 
-      <div className="border-t p-4">
-        <form onSubmit={handleSubmit} className="flex gap-2 max-w-3xl mx-auto">
-          <Input
-            placeholder="Ask about your project..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={isLoading}
-            className="border-primary/20 focus:border-primary"
-          />
-          <Button type="submit" disabled={isLoading || !input.trim()} className="btn-gradient text-white">
-            <Send className="h-4 w-4" />
-            <span className="sr-only">Send</span>
-          </Button>
-        </form>
-        <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground max-w-3xl mx-auto">
-          <div className="text-green-600">✅ MongoDB Chat History + OpenAI</div>
-          <div className="flex items-center">
-            <Settings className="h-3 w-3 mr-1" />
-            <span>Typing Speed:</span>
-            <button
-              onClick={() => setTypingSpeed((prev) => Math.min(prev + 10, 100))}
-              className="ml-2 px-2 py-1 rounded hover:bg-primary/10"
-              title="Slower typing"
-            >
-              Slower
-            </button>
-            <button
-              onClick={() => setTypingSpeed((prev) => Math.max(prev - 10, 10))}
-              className="ml-1 px-2 py-1 rounded hover:bg-primary/10"
-              title="Faster typing"
-            >
-              Faster
-            </button>
-            <span className="ml-1">({typingSpeed}ms)</span>
+        {/* Input */}
+        <div className="border-t p-4">
+          <div className="flex gap-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Ask me anything about your quality control project..."
+              disabled={isLoading}
+              className="flex-1"
+            />
+            <Button onClick={() => handleSendMessage()} disabled={isLoading || !input.trim()}>
+              <Send className="h-4 w-4" />
+            </Button>
           </div>
         </div>
-      </div>
+      </Card>
     </div>
   )
 }
