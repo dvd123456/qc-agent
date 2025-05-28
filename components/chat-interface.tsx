@@ -1,0 +1,366 @@
+"use client"
+
+import type React from "react"
+
+import { useState, useRef, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Send, Bot, User, Settings, Sparkles, History } from 'lucide-react'
+import { cn } from "@/lib/utils"
+import { TypingEffect } from "./typing-effect"
+import { getOrCreateThreadId } from "@/lib/thread-manager"
+
+interface Message {
+  id?: string
+  role: "user" | "assistant"
+  content: string
+  timestamp: string
+  suggestions?: string[]
+}
+
+interface ChatInterfaceProps {
+  projectId: string
+}
+
+// 10 predefined questions for QC projects
+const PREDEFINED_QUESTIONS = [
+  "What are the current issues in this project?",
+  "How is the project progress looking?",
+  "What files still need to be uploaded?",
+  "Are we on track to meet the deadline?",
+  "What should be the next priority?",
+  "Show me recent project activities",
+  "What quality metrics should I focus on?",
+  "How can I improve the testing process?",
+  "What are the biggest risks right now?",
+  "When should we schedule the next review?",
+]
+
+export function ChatInterface({ projectId }: ChatInterfaceProps) {
+  const [messages, setMessages] = useState<Message[]>([])
+  const [input, setInput] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
+  const [typingSpeed, setTypingSpeed] = useState(30)
+  const [completedMessages, setCompletedMessages] = useState<Set<string>>(new Set())
+  const [threadId, setThreadId] = useState<string>("")
+
+  // Initialize threadId and load chat history
+  useEffect(() => {
+    const currentThreadId = getOrCreateThreadId(projectId)
+    setThreadId(currentThreadId)
+    loadChatHistory(projectId, currentThreadId)
+  }, [projectId])
+
+  const loadChatHistory = async (projectId: string, threadId: string) => {
+    try {
+      setIsLoadingHistory(true)
+      setError(null)
+
+      const response = await fetch(`/api/chat/history?projectId=${projectId}&threadId=${threadId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      const data = await response.json()
+
+      if (!data.success) {
+        throw new Error(data.message || "Failed to load chat history")
+      }
+
+      if (data.data && data.data.length > 0) {
+        setMessages(data.data)
+        // Mark all messages as completed for typing effect
+        const completedIds = new Set<string>()
+        data.data.forEach((msg: Message) => {
+          if (msg.id) completedIds.add(msg.id)
+        })
+        setCompletedMessages(completedIds)
+      } else {
+        // No history, add welcome message
+        setMessages([
+          {
+            role: "assistant",
+            content: `Hello! I'm your QC Agent AI assistant for Project ${projectId}. I have access to your project details and can help you with quality control analysis, progress tracking, and issue resolution. How can I assist you today?`,
+            timestamp: new Date().toISOString(),
+            suggestions: PREDEFINED_QUESTIONS.slice(0, 6), // Show first 6 as initial suggestions
+          },
+        ])
+      }
+    } catch (error) {
+      console.error("Failed to load chat history:", error)
+      setError(error instanceof Error ? error.message : "Failed to load chat history")
+      
+      // Fallback welcome message
+      setMessages([
+        {
+          role: "assistant",
+          content: `Hello! I'm your QC Agent AI assistant for Project ${projectId}. I have access to your project details and can help you with quality control analysis, progress tracking, and issue resolution. How can I assist you today?`,
+          timestamp: new Date().toISOString(),
+          suggestions: PREDEFINED_QUESTIONS.slice(0, 6), // Show first 6 as initial suggestions
+        },
+      ])
+    } finally {
+      setIsLoadingHistory(false)
+    }
+  }
+
+  useEffect(() => {
+    if (!isLoadingHistory) {
+      scrollToBottom()
+    }
+  }, [messages, isLoadingHistory])
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
+  const scrollToShowUserMessage = (messageId: string) => {
+    setTimeout(() => {
+      const messageElement = document.querySelector(`[data-message-id="${messageId}"]`)
+      if (messageElement && chatContainerRef.current) {
+        const container = chatContainerRef.current
+        const messageTop = messageElement.offsetTop
+
+        container.scrollTo({
+          top: messageTop - 20,
+          behavior: "smooth",
+        })
+      }
+    }, 100)
+  }
+
+  const handleTypingComplete = (messageId: string) => {
+    setCompletedMessages((prev) => new Set([...prev, messageId]))
+  }
+
+  const sendMessage = async (messageText: string) => {
+    if (!messageText.trim() || !threadId) return
+
+    const userMessage: Message = {
+      role: "user",
+      content: messageText,
+      timestamp: new Date().toISOString(),
+    }
+
+    const userMessageId = `temp-${Date.now()}`
+
+    setMessages((prev) => [...prev, { ...userMessage, id: userMessageId }])
+    setInput("")
+    setIsLoading(true)
+    setError(null)
+
+    // Scroll to show user message
+    scrollToShowUserMessage(userMessageId)
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: messageText,
+          projectId,
+          threadId,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!data.success) {
+        throw new Error(data.error || "Failed to get response")
+      }
+
+      const assistantMessage: Message = {
+        role: "assistant",
+        content: data.message,
+        timestamp: new Date().toISOString(),
+        suggestions: data.suggestions || [],
+      }
+
+      // Replace the temporary user message and add the assistant message
+      setMessages((prev) =>
+        prev.map((msg) => (msg.id === userMessageId ? { ...msg, id: undefined } : msg)).concat(assistantMessage),
+      )
+    } catch (err) {
+      console.error("Chat error:", err)
+      setError(err instanceof Error ? err.message : "An error occurred")
+
+      // Add error message to chat
+      const errorMessage: Message = {
+        role: "assistant",
+        content: "Sorry, I encountered an error while processing your request. Please try again.",
+        timestamp: new Date().toISOString(),
+        suggestions: PREDEFINED_QUESTIONS.slice(0, 2), // Fallback suggestions
+      }
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    sendMessage(input)
+  }
+
+  const handleSuggestedQuestionClick = (question: string) => {
+    sendMessage(question)
+  }
+
+  if (isLoadingHistory) {
+    return (
+      <div className="flex justify-center items-center h-full">
+        <div className="flex items-center space-x-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <span className="text-lg text-muted-foreground">Loading chat history...</span>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="bg-muted/30 border-b px-4 py-2 flex items-center justify-between">
+        <div className="flex items-center">
+          <History className="h-4 w-4 mr-2 text-primary" />
+          <span className="text-sm font-medium">Thread ID: {threadId}</span>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          Session expires in 60 minutes of inactivity
+        </div>
+      </div>
+      
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4">
+        <div className="max-w-3xl mx-auto space-y-4">
+          {messages.map((message, index) => (
+            <div key={message.id || index} className="space-y-4" data-message-id={message.id || index}>
+              <div
+                className={cn(
+                  "flex items-start gap-3 rounded-lg p-4",
+                  message.role === "user" ? "ml-auto bg-primary text-primary-foreground" : "bg-muted",
+                )}
+                style={{ maxWidth: "80%" }}
+              >
+                <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-background">
+                  {message.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                </div>
+                <div>
+                  <div className="text-sm">
+                    {message.role === "assistant" && !completedMessages.has(message.id || `msg-${index}`) ? (
+                      <TypingEffect
+                        text={message.content}
+                        speed={typingSpeed}
+                        onComplete={() => handleTypingComplete(message.id || `msg-${index}`)}
+                      />
+                    ) : (
+                      <span className="whitespace-pre-wrap">{message.content}</span>
+                    )}
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    {new Date(message.timestamp).toLocaleTimeString()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Dynamic suggestions - only show for the last assistant message and after typing is complete */}
+              {message.role === "assistant" &&
+                index === messages.length - 1 &&
+                completedMessages.has(message.id || `msg-${index}`) &&
+                message.suggestions && (
+                  <div className="ml-11 space-y-2">
+                    <div className="flex items-center text-xs text-muted-foreground mb-2">
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      <span>AI-generated suggestions</span>
+                    </div>
+                    {message.suggestions.map((question, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleSuggestedQuestionClick(question)}
+                        className="block w-full max-w-[80%] text-left px-4 py-2 text-sm rounded-lg border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors"
+                      >
+                        {question}
+                      </button>
+                    ))}
+                  </div>
+                )}
+            </div>
+          ))}
+
+          {isLoading && (
+            <div className="flex items-start gap-3 rounded-lg p-4 bg-muted" style={{ maxWidth: "80%" }}>
+              <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-background">
+                <Bot className="h-4 w-4" />
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                <span className="text-sm text-muted-foreground">AI is thinking...</span>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div
+              className="flex items-start gap-3 rounded-lg p-4 bg-red-50 border border-red-200"
+              style={{ maxWidth: "80%" }}
+            >
+              <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-background">
+                <Bot className="h-4 w-4 text-red-500" />
+              </div>
+              <div>
+                <div className="text-sm text-red-700">Error occurred while processing your request</div>
+                <div className="mt-1 text-xs text-red-500">{error}</div>
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      <div className="border-t p-4">
+        <form onSubmit={handleSubmit} className="flex gap-2 max-w-3xl mx-auto">
+          <Input
+            placeholder="Ask about your project..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={isLoading}
+            className="border-primary/20 focus:border-primary"
+          />
+          <Button type="submit" disabled={isLoading || !input.trim()} className="btn-gradient text-white">
+            <Send className="h-4 w-4" />
+            <span className="sr-only">Send</span>
+          </Button>
+        </form>
+        <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground max-w-3xl mx-auto">
+          <div className="text-green-600">✅ MongoDB Chat History + OpenAI</div>
+          <div className="flex items-center">
+            <Settings className="h-3 w-3 mr-1" />
+            <span>Typing Speed:</span>
+            <button
+              onClick={() => setTypingSpeed((prev) => Math.min(prev + 10, 100))}
+              className="ml-2 px-2 py-1 rounded hover:bg-primary/10"
+              title="Slower typing"
+            >
+              Slower
+            </button>
+            <button
+              onClick={() => setTypingSpeed((prev) => Math.max(prev - 10, 10))}
+              className="ml-1 px-2 py-1 rounded hover:bg-primary/10"
+              title="Faster typing"
+            >
+              Faster
+            </button>
+            <span className="ml-1">({typingSpeed}ms)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
