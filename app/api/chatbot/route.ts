@@ -3,19 +3,7 @@ import { type NextRequest, NextResponse } from "next/server"
 // Mock database for chatbot threads
 const mockChatbotThreads = new Map()
 
-// Define interfaces
-interface Message {
-  role: "user" | "assistant"
-  content: string
-}
 
-interface Chatbot {
-  threadId: string
-  projectId: string
-  message: Message[]
-  created_by: string
-  updatedAt: string
-}
 
 // Mock AI response generator
 function generateMockResponse(userMessage: string, projectId: string): string {
