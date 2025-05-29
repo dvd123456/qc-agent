@@ -176,20 +176,19 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
       // Update thread expiry after successful message
       updateThreadExpiry(projectId)
 
-      // Mock AI response with suggestions
+      // Add assistant message
       const assistantMessage: Message = {
         role: "assistant",
-        content:
-          data.message ||
-          `I understand you're asking about "${messageText}". As your QC Agent AI, I can help you analyze this aspect of Project ${projectId}. Based on the current project status, here are some insights and recommendations for your quality control process.`,
+        content: data.message,
       }
 
       const finalMessages = [...newMessages, assistantMessage]
       setMessages(finalMessages)
 
-      // Generate dynamic suggestions
-      const shuffledQuestions = [...PREDEFINED_QUESTIONS].sort(() => 0.5 - Math.random())
-      setSuggestions(shuffledQuestions.slice(0, 2))
+      // Set the suggestions from the API response
+      if (data.suggestions && data.suggestions.length > 0) {
+        setSuggestions(data.suggestions)
+      }
     } catch (err) {
       console.error("Chat error:", err)
       setError(err instanceof Error ? err.message : "An error occurred")
@@ -274,7 +273,7 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
                   <div className="ml-11 space-y-2">
                     <div className="flex items-center text-xs text-muted-foreground mb-2">
                       <Sparkles className="h-3 w-3 mr-1" />
-                      <span>Suggested questions</span>
+                      <span>AI-generated suggestions</span>
                     </div>
                     {suggestions.map((question, idx) => (
                       <button
@@ -297,7 +296,7 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
               </div>
               <div className="flex items-center space-x-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                <span className="text-sm text-muted-foreground">AI is thinking...</span>
+                <span className="text-sm text-muted-foreground">AI is thinking and generating suggestions...</span>
               </div>
             </div>
           )}
@@ -336,7 +335,7 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
           </Button>
         </form>
         <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground max-w-3xl mx-auto">
-          <div className="text-green-600">✅ Mock Data + Thread Management</div>
+          <div className="text-green-600">✅ Mock Data + Smart Suggestions</div>
           <div className="flex items-center">
             <Settings className="h-3 w-3 mr-1" />
             <span>Typing Speed:</span>
