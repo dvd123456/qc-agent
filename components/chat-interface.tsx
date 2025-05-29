@@ -9,6 +9,7 @@ import { Send, Bot, User, Settings, Sparkles, History } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { TypingEffect } from "./typing-effect"
 import { getOrCreateThreadId, updateThreadExpiry } from "@/lib/thread-manager"
+import { PREDEFINED_QUESTIONS } from "@/contants"
 
 interface Message {
   role: "user" | "assistant"
