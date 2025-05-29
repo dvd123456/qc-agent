@@ -1,9 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
+import type { Message, Chatbot } from "@/types/chatbot"
 
 // Mock database for chatbot threads
 const mockChatbotThreads = new Map()
-
-
 
 // Mock AI response generator
 function generateMockResponse(userMessage: string, projectId: string): string {
