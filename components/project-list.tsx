@@ -98,7 +98,7 @@ export function ProjectList({ projects, onProjectDeleted }: ProjectListProps) {
           const progress = calculateProgress(project.metadata.startDate, project.metadata.endDate)
 
           return (
-            <Card key={project.id} className="hover:shadow-lg transition-shadow">
+            <Card key={project.id} className="hover:shadow-lg transition-shadow flex flex-col">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
                   <div className="space-y-1 flex-1">
@@ -140,7 +140,7 @@ export function ProjectList({ projects, onProjectDeleted }: ProjectListProps) {
                   </DropdownMenu>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 flex-grow">
                 <div className="flex items-center gap-2">
                   <Badge className={getStatusColor(project.status)}>{project.status}</Badge>
                   <Badge variant="outline" className={getPriorityColor(project.priority)}>
@@ -168,20 +168,15 @@ export function ProjectList({ projects, onProjectDeleted }: ProjectListProps) {
                     <span className="text-muted-foreground">{project.testCase?.count || 0} test cases</span>
                   </div>
                 </div>
-
-                <div className="flex gap-2 pt-2">
-                  <Button variant="outline" size="sm" onClick={() => handleViewDetails(project)} className="flex-1">
-                    <Eye className="mr-2 h-4 w-4" />
-                    View
-                  </Button>
-                  <Button asChild size="sm" className="flex-1">
-                    <Link href={`/projects/${project.id}/chat`}>
-                      <MessageSquare className="mr-2 h-4 w-4" />
-                      Chat
-                    </Link>
-                  </Button>
-                </div>
               </CardContent>
+              <div className="p-4 pt-0 mt-auto">
+                <Button asChild className="w-full">
+                  <Link href={`/projects/${project.id}/chat`}>
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    Open Project
+                  </Link>
+                </Button>
+              </div>
             </Card>
           )
         })}

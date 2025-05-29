@@ -15,22 +15,44 @@ interface ChatPageClientProps {
 export function ChatPageClient({ projectId }: ChatPageClientProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [projectName, setProjectName] = useState("")
+  const [projectData, setProjectData] = useState(null)
   const router = useRouter()
   const [showProjectDetails, setShowProjectDetails] = useState(false)
   const [showTestCasePreview, setShowTestCasePreview] = useState(false)
 
   useEffect(() => {
-    // Remove login check - allow direct access
     fetchProjectDetails()
   }, [projectId])
 
   const fetchProjectDetails = async () => {
     try {
-      // This would be replaced with actual API call
+      setIsLoading(true)
+      // In a real app, this would be an API call
       await new Promise((resolve) => setTimeout(resolve, 500))
 
       // Mock project data
-      setProjectName("Project " + projectId)
+      const mockProject = {
+        id: projectId,
+        name: `Project ${projectId}`,
+        status: "active",
+        priority: "high",
+        metadata: {
+          description: "This is a quality control project for testing purposes",
+          startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+          endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        testCase: {
+          count: 12,
+          passed: 8,
+          failed: 2,
+          pending: 2,
+        },
+        createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+
+      setProjectName(mockProject.name)
+      setProjectData(mockProject)
     } catch (error) {
       console.error("Failed to fetch project details:", error)
     } finally {
@@ -113,12 +135,13 @@ export function ChatPageClient({ projectId }: ChatPageClientProps) {
         <ChatInterface projectId={projectId} />
       </div>
 
-      <ProjectDetailsModal
-        isOpen={showProjectDetails}
-        onClose={() => setShowProjectDetails(false)}
-        projectId={projectId}
-        projectName={projectName}
-      />
+      {projectData && (
+        <ProjectDetailsModal
+          isOpen={showProjectDetails}
+          onClose={() => setShowProjectDetails(false)}
+          project={projectData}
+        />
+      )}
 
       <TestCasePreviewModal
         isOpen={showTestCasePreview}
