@@ -1,82 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
-import type { Message, Chatbot } from "@/types/chatbot";
+import dbConnect from "@/lib/mongodb";
+import Chat, { ChatbotDocument } from "@/models/chat";
+import Project, { ProjectDocument } from "@/models/project";
 
-// Mock database for chatbot threads
-const mockChatbotThreads = new Map();
-
-// Mock AI response generator
-function generateMockResponse(userMessage: string, projectId: string): string {
-  // List of possible responses based on keywords
-  const responses = [
-    `I understand your question about "${userMessage.substring(
-      0,
-      30
-    )}...". Based on Project ${projectId}'s current status, I can provide the following insights...`,
-    `That's a great question about "${userMessage.substring(
-      0,
-      30
-    )}...". Looking at the quality metrics for Project ${projectId}, I would recommend...`,
-    `Regarding "${userMessage.substring(
-      0,
-      30
-    )}...", the test cases for Project ${projectId} show several interesting patterns that might help address your concern...`,
-    `I've analyzed your question about "${userMessage.substring(
-      0,
-      30
-    )}...". The current progress of Project ${projectId} indicates that we should focus on...`,
-    `Based on your inquiry about "${userMessage.substring(
-      0,
-      30
-    )}...", I can see that Project ${projectId} has several areas that need attention, particularly...`,
-  ];
-
-  // Select a random response
-  const randomIndex = Math.floor(Math.random() * responses.length);
-  return responses[randomIndex];
-}
-
-// Generate suggestions based on user message
-function generateSuggestions(userMessage: string): string[] {
-  // List of possible suggestion templates
-  const suggestionTemplates = [
-    "Can you explain more about {topic}?",
-    "What are the main issues with {topic}?",
-    "How can we improve {topic}?",
-    "What metrics should we track for {topic}?",
-    "Is there a better approach to {topic}?",
-    "When should we address {topic}?",
-    "Who should be responsible for {topic}?",
-    "What resources do we need for {topic}?",
-  ];
-
-  // Extract potential topics from user message
-  const words = userMessage.split(" ");
-  const topics = words.filter((word) => word.length > 4).slice(0, 3);
-
-  if (topics.length === 0) {
-    topics.push("this issue", "quality control", "the project");
-  }
-
-  // Generate 2 random suggestions
-  const suggestions = [];
-  for (let i = 0; i < 2; i++) {
-    const randomTemplateIndex = Math.floor(
-      Math.random() * suggestionTemplates.length
-    );
-    const randomTopicIndex = Math.floor(Math.random() * topics.length);
-    const suggestion = suggestionTemplates[randomTemplateIndex].replace(
-      "{topic}",
-      topics[randomTopicIndex]
-    );
-    suggestions.push(suggestion);
-  }
-
-  return suggestions;
-}
-
-// GET handler - Fetch chatbot thread
 export async function GET(request: NextRequest) {
   try {
+    await dbConnect();
     const { searchParams } = new URL(request.url);
     const threadId = searchParams.get("threadId");
     const projectId = searchParams.get("projectId");
@@ -88,20 +17,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Check if thread exists in mock database
-    const chatbot = mockChatbotThreads.get(threadId);
+    const messages = await Chat.find({ threadId, projectId })
+      .sort({ timestamp: 1 })
+      .lean();
 
-    if (chatbot && chatbot.projectId === projectId) {
-      return NextResponse.json({
-        success: true,
-        data: chatbot,
-      });
-    }
-
-    // Return empty data if thread doesn't exist
     return NextResponse.json({
       success: true,
-      data: null,
+      data: messages,
     });
   } catch (error) {
     console.error("Error fetching chatbot thread:", error);
@@ -112,53 +34,125 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST handler - Create or update chatbot thread
 export async function POST(request: NextRequest) {
   try {
+    await dbConnect();
     const body = await request.json();
-    const { threadId, projectId, message, created_by } = body;
+    const { threadId, projectId, content, created_by } = body;
 
-    if (!threadId || !projectId || !message || !created_by) {
+    if (!threadId || !projectId || !content || !created_by) {
       return NextResponse.json(
         { success: false, message: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    // Get the last user message
-    const lastUserMessage = message.filter((m: any) => m.role === "user").pop();
-
-    if (!lastUserMessage) {
+    const project: ProjectDocument | null = await Project.findById(projectId);
+    if (!project) {
       return NextResponse.json(
-        { success: false, message: "No user message found" },
-        { status: 400 }
+        { success: false, message: "Project not found" },
+        { status: 404 }
       );
     }
 
-    // Generate mock AI response
-    const aiResponse = generateMockResponse(lastUserMessage.content, projectId);
+    const projectDetail = `Tên dự án: ${project.name}. Mô tả: ${JSON.stringify(
+      project.metadata
+    )}.`;
 
-    // Generate suggestions
-    const suggestions = generateSuggestions(lastUserMessage.content);
+    const history = await Chat.find({ threadId, projectId })
+      .sort({ timestamp: 1 })
+      .lean();
 
-    // Create or update chatbot thread
-    const chatbot: Chatbot = {
+    const messagesHistory = history.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    const messages = [
+      {
+        role: "system",
+        content: `Thông tin dự án: ${JSON.stringify(projectDetail)}`,
+      },
+      {
+        role: "system",
+        content: `Lịch sử hội thoại trước đó: ${JSON.stringify(
+          messagesHistory
+        )}`,
+      },
+      {
+        role: "system",
+        content: `
+          Vai trò của bạn:
+          - Bạn là một QC Agent, chuyên gia trong lĩnh vực kiểm thử phần mềm.
+          - Nhiệm vụ chính:
+            + Giải thích yêu cầu của dự án để viết test case.
+            + Tạo test case chi tiết theo chuẩn kiểm thử (input, step, expected result).
+            + Gợi ý test case cho các chức năng cụ thể.
+            + Giải thích cách vận hành test case, các loại kiểm thử (unit, integration, UI, v.v.).
+            + Hướng dẫn viết test case hiệu quả.
+          - Nếu người dùng hỏi về những chủ đề ngoài phạm vi kiểm thử hoặc dự án, hãy trả lời: "Xin lỗi, hãy hỏi về dự án này." Không được trả lời thêm gì khác.
+        `,
+      },
+      {
+        role: "system",
+        content:
+          "Trả kết quả dưới dạng HTML (chỉ phần <body>, không có <html> hay <head>).",
+      },
+      {
+        role: "user",
+        content: content,
+      },
+    ];
+
+    console.log("Messages sent to OpenAI:", messages);
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_OPENAI_URL}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.NEXT_PUBLIC_OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: process.env.NEXT_PUBLIC_OPENAI_MODEL,
+        messages,
+        temperature: 0.7,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("OpenAI API error");
+    }
+
+    const completion = await response.json();
+    const aiContent =
+      completion.choices?.[0]?.message?.content ||
+      "Xin lỗi, tôi chưa có câu trả lời.";
+
+    // xóa đi ```html ```` ở đầu và cuối
+    const cleanedAiContent = aiContent.replace(/```html\s*|\s*```/g, "").trim();
+
+    const userMsg: ChatbotDocument = await Chat.create({
       threadId,
       projectId,
-      message,
-      created_by,
-      updatedAt: new Date().toISOString(),
-    };
+      role: "user",
+      content,
+      timestamp: new Date().toISOString(),
+    });
 
-    // Store in mock database
-    mockChatbotThreads.set(threadId, chatbot);
+    const aiMsg: ChatbotDocument = await Chat.create({
+      threadId,
+      projectId,
+      role: "assistant",
+      content: cleanedAiContent,
+      timestamp: new Date().toISOString(),
+    });
 
-    // Return success with AI response and suggestions
+    // Step 5: Trả về cho FE
     return NextResponse.json({
       success: true,
-      message: aiResponse,
-      suggestions,
+      message: cleanedAiContent,
       threadId,
+      data: [userMsg, aiMsg],
     });
   } catch (error) {
     console.error("Error creating/updating chatbot thread:", error);

@@ -1,218 +1,247 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useRef, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Send, Bot, User, Settings, Sparkles, History } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { TypingEffect } from "./typing-effect"
-import { getOrCreateThreadId, updateThreadExpiry } from "@/lib/thread-manager"
-import { PREDEFINED_QUESTIONS } from "@/contants"
+import { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Send, Bot, User, Settings, Sparkles, History } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { TypingEffect } from "./typing-effect";
+import { getOrCreateThreadId, updateThreadExpiry } from "@/lib/thread-manager";
+import { PREDEFINED_QUESTIONS } from "@/contants";
 
 interface Message {
-  role: "user" | "assistant"
-  content: string
+  role: "user" | "assistant";
+  content: string;
 }
 
 interface ChatInterfaceProps {
-  projectId: string
+  projectId: string;
 }
 
 // 10 predefined questions for QC projects
 
-
 export function ChatInterface({ projectId }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [isLoadingHistory, setIsLoadingHistory] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const chatContainerRef = useRef<HTMLDivElement>(null)
-  const [typingSpeed, setTypingSpeed] = useState(30)
-  const [completedMessages, setCompletedMessages] = useState<Set<string>>(new Set())
-  const [threadId, setThreadId] = useState<string>("")
-  const [suggestions, setSuggestions] = useState<string[]>([])
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const [typingSpeed, setTypingSpeed] = useState(30);
+  const [completedMessages, setCompletedMessages] = useState<Set<string>>(
+    new Set()
+  );
+  const [threadId, setThreadId] = useState<string>("");
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
   // Initialize threadId and load chat history
   useEffect(() => {
-    const currentThreadId = getOrCreateThreadId(projectId)
-    setThreadId(currentThreadId)
-    loadChatHistory(projectId, currentThreadId)
-  }, [projectId])
+    const currentThreadId = getOrCreateThreadId(projectId);
+    setThreadId(currentThreadId);
+    loadChatHistory(projectId, currentThreadId);
+  }, [projectId]);
 
   const loadChatHistory = async (projectId: string, threadId: string) => {
     try {
-      setIsLoadingHistory(true)
-      setError(null)
+      setIsLoadingHistory(true);
+      setError(null);
 
-      const response = await fetch(`/api/chatbot?projectId=${projectId}&threadId=${threadId}`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
+      const response = await fetch(
+        `/api/chatbot?projectId=${projectId}&threadId=${threadId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-      const data = await response.json()
+      const data = await response.json();
 
-      if (!data.success) {
-        throw new Error(data.message || "Failed to load chat history")
-      }
+      if (Array.isArray(data.data) && data.data.length > 0) {
+        setMessages(data.data);
+        // Đánh dấu đã hoàn thành hiệu ứng typing cho tất cả messages cũ
+        const completedIds = new Set<string>();
+        data.data.forEach((_: Message, index: number) => {
+          completedIds.add(`msg-${index}`);
+        });
+        setCompletedMessages(completedIds);
 
-      if (data.data && data.data.message && data.data.message.length > 0) {
-        setMessages(data.data.message)
-        // Mark all messages as completed for typing effect
-        const completedIds = new Set<string>()
-        data.data.message.forEach((_: Message, index: number) => {
-          completedIds.add(`msg-${index}`)
-        })
-        setCompletedMessages(completedIds)
+        // Tìm message user cuối cùng
+        const lastUserMsg = [...data.data]
+          .reverse()
+          .find((msg) => msg.role === "user");
+        const suggestContent = lastUserMsg ? lastUserMsg.content : "";
+
+        const suggestRes = await fetch("/api/chatbot/suggestion", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: suggestContent }),
+        });
+        const suggestData = await suggestRes.json();
+        if (suggestData.success && suggestData.suggestions) {
+          setSuggestions(suggestData.suggestions);
+        } else {
+          setSuggestions([]);
+        }
       } else {
-        // No history, add welcome message
+        // Không có history, show welcome message
         const welcomeMessage: Message = {
           role: "assistant",
-          content: `Hello! I'm your QC Agent AI assistant for Project ${projectId}. I can help you with quality control analysis, progress tracking, and issue resolution. How can I assist you today?`,
+          content: `Hello! I'm your QC Agent AI assistant for Project ${projectId}. How can I help you today?`,
+        };
+        setMessages([welcomeMessage]);
+        setCompletedMessages(new Set(["msg-0"]));
+        // Gọi suggestion default
+        const suggestRes = await fetch("/api/chatbot/suggestion", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: "" }),
+        });
+        const suggestData = await suggestRes.json();
+        if (suggestData.success && suggestData.suggestions) {
+          setSuggestions(suggestData.suggestions);
+        } else {
+          setSuggestions([]);
         }
-        setMessages([welcomeMessage])
-        setSuggestions(PREDEFINED_QUESTIONS.slice(0, 6))
-        setCompletedMessages(new Set(["msg-0"]))
       }
     } catch (error) {
-      console.error("Failed to load chat history:", error)
-      setError(error instanceof Error ? error.message : "Failed to load chat history")
-
-      // Fallback welcome message
-      const welcomeMessage: Message = {
-        role: "assistant",
-        content: `Hello! I'm your QC Agent AI assistant for Project ${projectId}. I can help you with quality control analysis, progress tracking, and issue resolution. How can I assist you today?`,
-      }
-      setMessages([welcomeMessage])
-      setSuggestions(PREDEFINED_QUESTIONS.slice(0, 6))
-      setCompletedMessages(new Set(["msg-0"]))
+      setError("Failed to load chat history");
     } finally {
-      setIsLoadingHistory(false)
+      setIsLoadingHistory(false);
     }
-  }
+  };
 
   useEffect(() => {
     if (!isLoadingHistory) {
-      scrollToBottom()
+      scrollToBottom();
     }
-  }, [messages, isLoadingHistory])
+  }, [messages, isLoadingHistory]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   const scrollToShowUserMessage = (messageIndex: number) => {
     setTimeout(() => {
-      const messageElement = document.querySelector(`[data-message-id="msg-${messageIndex}"]`)
+      const messageElement = document.querySelector(
+        `[data-message-id="msg-${messageIndex}"]`
+      );
       if (messageElement && chatContainerRef.current) {
-        const container = chatContainerRef.current
-        const messageTop = messageElement.offsetTop
+        const container = chatContainerRef.current;
+        const messageTop = (messageElement as HTMLElement).offsetTop;
 
         container.scrollTo({
           top: messageTop - 20,
           behavior: "smooth",
-        })
+        });
       }
-    }, 100)
-  }
+    }, 100);
+  };
 
   const handleTypingComplete = (messageId: string) => {
-    setCompletedMessages((prev) => new Set([...prev, messageId]))
-  }
+    setCompletedMessages((prev) => new Set([...prev, messageId]));
+  };
 
   const sendMessage = async (messageText: string) => {
-    if (!messageText.trim() || !threadId) return
+    if (!messageText.trim() || !threadId) return;
 
     const userMessage: Message = {
       role: "user",
       content: messageText,
-    }
+    };
 
-    const newMessages = [...messages, userMessage]
-    setMessages(newMessages)
-    setInput("")
-    setIsLoading(true)
-    setError(null)
-    setSuggestions([])
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+    setInput("");
+    setIsLoading(true);
+    setError(null);
+    setSuggestions([]);
 
     // Scroll to show user message
-    scrollToShowUserMessage(newMessages.length - 1)
+    scrollToShowUserMessage(newMessages.length - 1);
 
     try {
-      const response = await fetch("/api/chatbot", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          threadId,
-          projectId,
-          message: newMessages,
-          created_by: "user", // In real app, this would be the actual user ID
+      // Gọi 2 API song song
+      const [chatRes, suggestRes] = await Promise.all([
+        fetch("/api/chatbot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            threadId,
+            projectId,
+            content: messageText,
+            created_by: "user",
+          }),
         }),
-      })
+        fetch("/api/chatbot/suggestion", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: messageText }),
+        }),
+      ]);
 
-      const data = await response.json()
+      const chatData = await chatRes.json();
+      const suggestData = await suggestRes.json();
 
-      if (!data.success) {
-        throw new Error(data.error || "Failed to get response")
+      if (!chatData.success) {
+        throw new Error(chatData.error || "Failed to get response");
       }
 
-      // Update thread expiry after successful message
-      updateThreadExpiry(projectId)
+      updateThreadExpiry(projectId);
 
-      // Add assistant message
       const assistantMessage: Message = {
         role: "assistant",
-        content: data.message,
-      }
+        content: chatData.message,
+      };
 
-      const finalMessages = [...newMessages, assistantMessage]
-      setMessages(finalMessages)
+      const finalMessages = [...newMessages, assistantMessage];
+      setMessages(finalMessages);
 
-      // Set the suggestions from the API response
-      if (data.suggestions && data.suggestions.length > 0) {
-        setSuggestions(data.suggestions)
+      if (suggestData.success && suggestData.suggestions) {
+        setSuggestions(suggestData.suggestions);
+      } else {
+        setSuggestions([]);
       }
     } catch (err) {
-      console.error("Chat error:", err)
-      setError(err instanceof Error ? err.message : "An error occurred")
+      console.error("Chat error:", err);
+      setError(err instanceof Error ? err.message : "An error occurred");
 
-      // Add error message to chat
       const errorMessage: Message = {
         role: "assistant",
-        content: "Sorry, I encountered an error while processing your request. Please try again.",
-      }
-      setMessages((prev) => [...prev, errorMessage])
-      setSuggestions(PREDEFINED_QUESTIONS.slice(0, 2))
+        content:
+          "Sorry, I encountered an error while processing your request. Please try again.",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      setSuggestions([]);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    sendMessage(input)
-  }
+    e.preventDefault();
+    sendMessage(input);
+  };
 
   const handleSuggestedQuestionClick = (question: string) => {
-    sendMessage(question)
-  }
+    sendMessage(question);
+  };
 
   if (isLoadingHistory) {
     return (
       <div className="flex justify-center items-center h-full">
         <div className="flex items-center space-x-3">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          <span className="text-lg text-muted-foreground">Loading chat history...</span>
+          <span className="text-lg text-muted-foreground">
+            Loading chat history...
+          </span>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -222,36 +251,51 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
           <History className="h-4 w-4 mr-2 text-primary" />
           <span className="text-sm font-medium">Thread: {threadId}</span>
         </div>
-        <div className="text-xs text-muted-foreground">Session expires after 60 minutes of inactivity</div>
+        <div className="text-xs text-muted-foreground">
+          Session expires after 60 minutes of inactivity
+        </div>
       </div>
 
       <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4">
         <div className="max-w-3xl mx-auto space-y-4">
           {messages.map((message, index) => (
-            <div key={index} className="space-y-4" data-message-id={`msg-${index}`}>
+            <div
+              key={index}
+              className="space-y-4"
+              data-message-id={`msg-${index}`}
+            >
               <div
                 className={cn(
-                  "flex items-start gap-3 rounded-lg p-4",
-                  message.role === "user" ? "ml-auto bg-primary text-primary-foreground" : "bg-muted",
+                  "flex items-start gap-3 rounded-lg p-4 border border-gray-200",
+                  message.role === "user"
+                    ? "ml-auto bg-muted w-fit max-w-[80%]"
+                    : "bg-muted"
                 )}
-                style={{ maxWidth: "80%" }}
               >
                 <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-background">
-                  {message.role === "user" ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+                  {message.role === "user" ? (
+                    <User className="h-4 w-4" />
+                  ) : (
+                    <Bot className="h-4 w-4" />
+                  )}
                 </div>
                 <div>
                   <div className="text-sm">
-                    {message.role === "assistant" && !completedMessages.has(`msg-${index}`) ? (
+                    {message.role === "assistant" ? (
                       <TypingEffect
-                        text={message.content}
-                        speed={typingSpeed}
+                        html={message.content}
+                        speed={10}
                         onComplete={() => handleTypingComplete(`msg-${index}`)}
                       />
                     ) : (
-                      <span className="whitespace-pre-wrap">{message.content}</span>
+                      <span className="whitespace-pre-wrap">
+                        {message.content}
+                      </span>
                     )}
                   </div>
-                  <div className="mt-1 text-xs text-gray-500">{new Date().toLocaleTimeString()}</div>
+                  <div className="mt-1 text-xs text-gray-500">
+                    {new Date().toLocaleTimeString()}
+                  </div>
                 </div>
               </div>
 
@@ -280,13 +324,18 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
           ))}
 
           {isLoading && (
-            <div className="flex items-start gap-3 rounded-lg p-4 bg-muted" style={{ maxWidth: "80%" }}>
+            <div
+              className="flex items-start gap-3 rounded-lg p-4 bg-muted"
+              style={{ maxWidth: "80%" }}
+            >
               <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-background">
                 <Bot className="h-4 w-4" />
               </div>
               <div className="flex items-center space-x-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                <span className="text-sm text-muted-foreground">AI is thinking and generating suggestions...</span>
+                <span className="text-sm text-muted-foreground">
+                  AI is thinking and generating suggestions...
+                </span>
               </div>
             </div>
           )}
@@ -300,7 +349,9 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
                 <Bot className="h-4 w-4 text-red-500" />
               </div>
               <div>
-                <div className="text-sm text-red-700">Error occurred while processing your request</div>
+                <div className="text-sm text-red-700">
+                  Error occurred while processing your request
+                </div>
                 <div className="mt-1 text-xs text-red-500">{error}</div>
               </div>
             </div>
@@ -319,7 +370,11 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
             disabled={isLoading}
             className="border-primary/20 focus:border-primary"
           />
-          <Button type="submit" disabled={isLoading || !input.trim()} className="btn-gradient text-white">
+          <Button
+            type="submit"
+            disabled={isLoading || !input.trim()}
+            className="btn-gradient text-white"
+          >
             <Send className="h-4 w-4" />
             <span className="sr-only">Send</span>
           </Button>
@@ -348,5 +403,5 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }
