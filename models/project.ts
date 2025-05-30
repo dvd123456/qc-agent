@@ -7,6 +7,7 @@ export interface ProjectDocument extends Document {
     startDate?: Date;
     endDate?: Date;
   };
+  summary?: string;
   testCase: object[];
   createdAt: Date;
   updatedAt: Date;
@@ -23,6 +24,7 @@ const ProjectSchema = new Schema<ProjectDocument>(
       startDate: Date,
       endDate: Date,
     },
+    summary: { type: String, default: "" },
     testCase: { type: [Object], default: [] },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },

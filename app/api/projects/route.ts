@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import type { CreateProjectInput } from "@/types/project";
 import Project from "@/models/project";
+import { Sumana } from "next/font/google";
 
 export async function GET() {
   try {
@@ -36,7 +37,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body: CreateProjectInput = await request.json();
-    const { name, description, startDate, endDate } = body;
+    const { name, description, startDate, endDate, summary } = body;
 
     if (!name || !startDate || !endDate) {
       return NextResponse.json(
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
         startDate,
         endDate,
       },
+      summary,
       testCase: [],
       status: "active",
       priority: "medium",

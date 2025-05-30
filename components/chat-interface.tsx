@@ -31,7 +31,6 @@ export function ChatInterface({ project }: ChatInterfaceProps) {
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const [typingSpeed, setTypingSpeed] = useState(30);
   const [completedMessages, setCompletedMessages] = useState<Set<string>>(
     new Set()
   );
@@ -386,28 +385,6 @@ export function ChatInterface({ project }: ChatInterfaceProps) {
             <span className="sr-only">Send</span>
           </Button>
         </form>
-        <div className="flex justify-between items-center mt-2 text-xs text-muted-foreground max-w-3xl mx-auto">
-          <div className="text-green-600">✅ Mock Data + Smart Suggestions</div>
-          <div className="flex items-center">
-            <Settings className="h-3 w-3 mr-1" />
-            <span>Typing Speed:</span>
-            <button
-              onClick={() => setTypingSpeed((prev) => Math.min(prev + 10, 100))}
-              className="ml-2 px-2 py-1 rounded hover:bg-primary/10"
-              title="Slower typing"
-            >
-              Slower
-            </button>
-            <button
-              onClick={() => setTypingSpeed((prev) => Math.max(prev - 10, 10))}
-              className="ml-1 px-2 py-1 rounded hover:bg-primary/10"
-              title="Faster typing"
-            >
-              Faster
-            </button>
-            <span className="ml-1">({typingSpeed}ms)</span>
-          </div>
-        </div>
       </div>
     </div>
   );
