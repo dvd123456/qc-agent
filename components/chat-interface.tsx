@@ -9,7 +9,7 @@ import { Send, Bot, User, Settings, Sparkles, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TypingEffect } from "./typing-effect";
 import { getOrCreateThreadId, updateThreadExpiry } from "@/lib/thread-manager";
-import { PREDEFINED_QUESTIONS } from "@/contants";
+import { ProjectDocument } from "@/models/project";
 
 interface Message {
   role: "user" | "assistant";
@@ -17,12 +17,13 @@ interface Message {
 }
 
 interface ChatInterfaceProps {
-  projectId: string;
+  project?: ProjectDocument;
 }
 
 // 10 predefined questions for QC projects
 
-export function ChatInterface({ projectId }: ChatInterfaceProps) {
+export function ChatInterface({ project }: ChatInterfaceProps) {
+  console.log("🚀 ~ ChatInterface ~ project:", project);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -39,10 +40,10 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
 
   // Initialize threadId and load chat history
   useEffect(() => {
-    const currentThreadId = getOrCreateThreadId(projectId);
+    const currentThreadId = getOrCreateThreadId(project?.id);
     setThreadId(currentThreadId);
-    loadChatHistory(projectId, currentThreadId);
-  }, [projectId]);
+    loadChatHistory(project?.id, currentThreadId);
+  }, [project]);
 
   const loadChatHistory = async (projectId: string, threadId: string) => {
     try {
@@ -91,7 +92,7 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
         // Không có history, show welcome message
         const welcomeMessage: Message = {
           role: "assistant",
-          content: `Hello! I'm your QC Agent AI assistant for Project ${projectId}. How can I help you today?`,
+          content: `Xin chào! Tôi là QC Agent assistant for Project <b>${project?.name}</b>. <br>Bạn cần tôi giúp gì không?`,
         };
         setMessages([welcomeMessage]);
         setCompletedMessages(new Set(["msg-0"]));
@@ -165,6 +166,8 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
     scrollToShowUserMessage(newMessages.length - 1);
 
     try {
+      console.log("🚀 ~ sendMessage ~ project:", project);
+
       // Gọi 2 API song song
       const [chatRes, suggestRes] = await Promise.all([
         fetch("/api/chatbot", {
@@ -172,7 +175,7 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             threadId,
-            projectId,
+            projectId: project?.id,
             content: messageText,
             created_by: "user",
           }),
@@ -191,7 +194,7 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
         throw new Error(chatData.error || "Failed to get response");
       }
 
-      updateThreadExpiry(projectId);
+      updateThreadExpiry(project?.id);
 
       const assistantMessage: Message = {
         role: "assistant",
@@ -246,13 +249,17 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="bg-muted/30 border-b px-4 py-2 flex items-center justify-between">
-        <div className="flex items-center">
-          <History className="h-4 w-4 mr-2 text-primary" />
-          <span className="text-sm font-medium">Thread: {threadId}</span>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          Session expires after 60 minutes of inactivity
+      <div className="bg-muted/30 border-b px-4 py-2">
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
+          <div className="flex items-center">
+            <History className="h-4 w-4 mr-2 text-primary" />
+            <span className="text-sm font-medium">Thread: {threadId}</span>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {`Session expires after ${
+              process.env.EXPIRY_TIMESTAMP_THREAD || 10
+            } minutes of inactivity`}
+          </div>
         </div>
       </div>
 
@@ -334,7 +341,7 @@ export function ChatInterface({ projectId }: ChatInterfaceProps) {
               <div className="flex items-center space-x-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
                 <span className="text-sm text-muted-foreground">
-                  AI is thinking and generating suggestions...
+                  AI is thinking...
                 </span>
               </div>
             </div>

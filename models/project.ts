@@ -2,7 +2,7 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface ProjectDocument extends Document {
   name: string;
-  metadata: {
+  metadata?: {
     description?: string;
     startDate?: Date;
     endDate?: Date;

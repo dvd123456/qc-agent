@@ -7,6 +7,7 @@ import { ArrowLeft, FileDown, Eye, FileText } from "lucide-react";
 import { ChatInterface } from "@/components/chat-interface";
 import { ProjectDetailsModal } from "@/components/project-details-modal";
 import { TestCasePreviewModal } from "@/components/test-case-preview-modal";
+import { ProjectDocument } from "@/models/project";
 
 interface ChatPageClientProps {
   projectId: string;
@@ -14,8 +15,7 @@ interface ChatPageClientProps {
 
 export function ChatPageClient({ projectId }: ChatPageClientProps) {
   const [isLoading, setIsLoading] = useState(true);
-  const [projectName, setProjectName] = useState("");
-  const [projectData, setProjectData] = useState(null);
+  const [projectData, setProjectData] = useState<ProjectDocument>();
   const router = useRouter();
   const [showProjectDetails, setShowProjectDetails] = useState(false);
   const [showTestCasePreview, setShowTestCasePreview] = useState(false);
@@ -27,40 +27,16 @@ export function ChatPageClient({ projectId }: ChatPageClientProps) {
   const fetchProjectDetails = async () => {
     try {
       setIsLoading(true);
-      // In a real app, this would be an API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Mock project data
-      const mockProject = {
-        id: projectId,
-        name: `Project ${projectId}`,
-        status: "active",
-        priority: "high",
-        metadata: {
-          description: "This is a quality control project for testing purposes",
-          startDate: new Date(
-            Date.now() - 7 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-          endDate: new Date(
-            Date.now() + 14 * 24 * 60 * 60 * 1000
-          ).toISOString(),
-        },
-        testCase: {
-          count: 12,
-          passed: 8,
-          failed: 2,
-          pending: 2,
-        },
-        createdAt: new Date(
-          Date.now() - 10 * 24 * 60 * 60 * 1000
-        ).toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-
-      setProjectName(mockProject.name);
-      setProjectData(mockProject);
+      const res = await fetch(`/api/projects/${projectId}`);
+      const data = await res.json();
+      if (data.success && data.data) {
+        setProjectData(data.data);
+      } else {
+        setProjectData(undefined);
+      }
     } catch (error) {
       console.error("Failed to fetch project details:", error);
+      setProjectData(undefined);
     } finally {
       setIsLoading(false);
     }
@@ -105,7 +81,9 @@ export function ChatPageClient({ projectId }: ChatPageClientProps) {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
-            <h1 className="text-xl font-bold text-gradient">{projectName}</h1>
+            <h1 className="text-xl font-bold text-gradient">
+              {projectData?.name}
+            </h1>
           </div>
           <div className="flex space-x-2">
             <Button size="sm" onClick={handleViewProjectDetails}>
@@ -125,7 +103,7 @@ export function ChatPageClient({ projectId }: ChatPageClientProps) {
       </header>
 
       <div className="flex-1 overflow-hidden">
-        <ChatInterface projectId={projectId} />
+        <ChatInterface project={projectData} />
       </div>
 
       {projectData && (

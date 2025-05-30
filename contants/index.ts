@@ -1,12 +1,7 @@
 export const PREDEFINED_QUESTIONS = [
-  "What are the current issues in this project?",
-  "How is the project progress looking?",
-  "What files still need to be uploaded?",
-  "Are we on track to meet the deadline?",
-  "What should be the next priority?",
-  "Show me recent project activities",
-  "What quality metrics should I focus on?",
-  "How can I improve the testing process?",
-  "What are the biggest risks right now?",
-  "When should we schedule the next review?",
-]
+  "Test case là gì và tại sao nó quan trọng trong kiểm thử phần mềm?",
+  "Làm thế nào để viết một test case hiệu quả?",
+  "Làm thế nào để xác định test case cần thiết cho một tính năng mới?",
+  "Có công cụ nào hỗ trợ quản lý và thực hiện test case không?",
+  "Làm thế nào để ưu tiên các test case khi thời gian kiểm thử bị giới hạn?",
+];
