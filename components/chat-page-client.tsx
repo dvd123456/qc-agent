@@ -14,6 +14,7 @@ interface ChatPageClientProps {
 }
 
 export function ChatPageClient({ projectId }: ChatPageClientProps) {
+  const [reload, setReload] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [projectData, setProjectData] = useState<ProjectDocument>();
   const router = useRouter();
@@ -21,8 +22,11 @@ export function ChatPageClient({ projectId }: ChatPageClientProps) {
   const [showTestCasePreview, setShowTestCasePreview] = useState(false);
 
   useEffect(() => {
-    fetchProjectDetails();
-  }, [projectId]);
+    if (reload === true) {
+      fetchProjectDetails();
+      setReload(false);
+    }
+  }, [projectId, reload]);
 
   const fetchProjectDetails = async () => {
     try {
@@ -76,12 +80,12 @@ export function ChatPageClient({ projectId }: ChatPageClientProps) {
     <div className="flex flex-col h-screen">
       <header className="border-b border-primary/10 p-4 bg-gradient-card">
         <div className="container mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4 min-w-0">
             <Button size="sm" onClick={handleBackToDashboard}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
-            <h1 className="text-xl font-bold text-gradient">
+            <h1 className="text-xl font-bold text-gradient truncate max-w-xs block">
               {projectData?.name}
             </h1>
           </div>
@@ -103,7 +107,7 @@ export function ChatPageClient({ projectId }: ChatPageClientProps) {
       </header>
 
       <div className="flex-1 overflow-hidden">
-        <ChatInterface project={projectData} />
+        <ChatInterface project={projectData} reload={() => setReload(true)} />
       </div>
 
       {projectData && (

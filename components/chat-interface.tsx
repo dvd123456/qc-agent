@@ -5,11 +5,12 @@ import type React from "react";
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Bot, User, Settings, Sparkles, History } from "lucide-react";
+import { Send, Sparkles, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TypingEffect } from "./typing-effect";
 import { getOrCreateThreadId, updateThreadExpiry } from "@/lib/thread-manager";
 import { ProjectDocument } from "@/models/project";
+import { UploadTestCase } from "./upload-test-case";
 
 interface Message {
   role: "user" | "assistant";
@@ -18,12 +19,12 @@ interface Message {
 
 interface ChatInterfaceProps {
   project?: ProjectDocument;
+  reload: () => void;
 }
 
 // 10 predefined questions for QC projects
 
-export function ChatInterface({ project }: ChatInterfaceProps) {
-  console.log("🚀 ~ ChatInterface ~ project:", project);
+export function ChatInterface({ project, reload }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -37,12 +38,23 @@ export function ChatInterface({ project }: ChatInterfaceProps) {
   const [threadId, setThreadId] = useState<string>("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
 
-  // Initialize threadId and load chat history
+  // Nếu chưa có testCase, render upload file và dừng lại
+  if (!project?.testCase || project.testCase.length === 0) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center">
+        <UploadTestCase projectId={project?.id} onUploaded={() => reload()} />
+      </div>
+    );
+  }
+
+  // Chỉ chạy effect khi đã có testCase
   useEffect(() => {
+    if (!project?.testCase || project.testCase.length === 0) return;
     const currentThreadId = getOrCreateThreadId(project?.id);
     setThreadId(currentThreadId);
     loadChatHistory(project?.id, currentThreadId);
-  }, [project]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id, project?.testCase?.length]);
 
   const loadChatHistory = async (projectId: string, threadId: string) => {
     try {
@@ -278,13 +290,6 @@ export function ChatInterface({ project }: ChatInterfaceProps) {
                     : "bg-muted"
                 )}
               >
-                <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-background">
-                  {message.role === "user" ? (
-                    <User className="h-4 w-4" />
-                  ) : (
-                    <Bot className="h-4 w-4" />
-                  )}
-                </div>
                 <div>
                   <div className="text-sm">
                     {message.role === "assistant" ? (
@@ -334,9 +339,6 @@ export function ChatInterface({ project }: ChatInterfaceProps) {
               className="flex items-start gap-3 rounded-lg p-4 bg-muted"
               style={{ maxWidth: "80%" }}
             >
-              <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-background">
-                <Bot className="h-4 w-4" />
-              </div>
               <div className="flex items-center space-x-2">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
                 <span className="text-sm text-muted-foreground">
@@ -351,9 +353,6 @@ export function ChatInterface({ project }: ChatInterfaceProps) {
               className="flex items-start gap-3 rounded-lg p-4 bg-red-50 border border-red-200"
               style={{ maxWidth: "80%" }}
             >
-              <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-background">
-                <Bot className="h-4 w-4 text-red-500" />
-              </div>
               <div>
                 <div className="text-sm text-red-700">
                   Error occurred while processing your request

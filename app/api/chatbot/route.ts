@@ -88,13 +88,13 @@ export async function POST(request: NextRequest) {
             + Câu hỏi liên quan đến nội dung, chức năng hoặc mục tiêu của dự án.
             + Câu hỏi liên quan đến kiểm thử phần mềm, bao gồm cách viết test case, tự động hóa kiểm thử, quy trình kiểm thử.
             + Yêu cầu tạo test case từ thông tin dự án.
-          - Nếu người dùng hỏi về chủ đề KHÔNG LIÊN QUAN đến dự án hoặc kiểm thử phần mềm, hãy trả lời: "Xin lỗi, hãy hỏi về dự án này."
+          - Nếu người dùng hỏi về chủ đề KHÔNG LIÊN QUAN đến dự án hoặc kiểm thử phần mềm, hãy trả lời: "Xin lỗi, tôi không có câu trả lời cho câu hỏi này. Hãy hỏi tôi liên quan về chi tiết dự án, hoặc test case."
         `,
       },
       {
         role: "system",
         content:
-          "Trả kết quả dưới dạng HTML (chỉ phần <body>, không có <html> hay <head>).",
+          "Trả kết quả dưới dạng HTML, thêm vào vài icon nhìn cho đẹp mắt (chỉ phần <body>, không có <html> hay <head>).",
       },
       {
         role: "user",
