@@ -15,7 +15,7 @@ import { ProjectForm } from "@/components/project-form";
 import { ProjectDocument } from "@/models/project";
 
 interface CreateProjectButtonProps {
-  onProjectCreated?: (project: ProjectDocument) => void;
+  onProjectCreated?: () => void;
 }
 
 export function CreateProjectButton({
@@ -23,9 +23,9 @@ export function CreateProjectButton({
 }: CreateProjectButtonProps) {
   const [open, setOpen] = useState(false);
 
-  const handleProjectCreated = (project: ProjectDocument) => {
+  const handleProjectCreated = () => {
     setOpen(false);
-    onProjectCreated?.(project);
+    onProjectCreated?.();
   };
 
   return (

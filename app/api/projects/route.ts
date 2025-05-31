@@ -1,8 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
-import type { CreateProjectInput } from "@/types/project";
 import Project from "@/models/project";
-import { Sumana } from "next/font/google";
 
 export async function GET() {
   try {
@@ -36,7 +34,7 @@ export async function GET() {
 // POST - Create new project
 export async function POST(request: NextRequest) {
   try {
-    const body: CreateProjectInput = await request.json();
+    const body = await request.json();
     const { name, description, startDate, endDate, summary } = body;
 
     if (!name || !startDate || !endDate) {
@@ -79,10 +77,16 @@ export async function POST(request: NextRequest) {
       userId: "current_user_id",
     });
 
+    // Transform the MongoDB document to include id instead of _id
+    const projectData = {
+      ...newProject.toObject(),
+      id: newProject._id,
+    };
+
     return NextResponse.json({
       success: true,
       message: "Project created successfully",
-      data: newProject,
+      data: projectData,
     });
   } catch (error) {
     console.error("Create Project Error:", error);

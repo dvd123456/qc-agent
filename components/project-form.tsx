@@ -9,10 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import type { Project } from "@/types/project";
+import { ProjectDocument } from "@/models/project";
 
 interface ProjectFormProps {
-  onSuccess: (project: Project) => void;
+  onSuccess: () => void;
 }
 
 export function ProjectForm({ onSuccess }: ProjectFormProps) {
@@ -58,10 +58,8 @@ export function ProjectForm({ onSuccess }: ProjectFormProps) {
         description: "Your project has been created successfully.",
       });
 
-      onSuccess(data.data);
-
-      // Navigate to upload page for the new project
-      router.push(`/projects/${data.data.id}/upload`);
+      onSuccess();
+      router.push(`/projects/${data.data.id}/chat`);
     } catch (error) {
       console.error("Create project error:", error);
       toast({
@@ -98,17 +96,6 @@ export function ProjectForm({ onSuccess }: ProjectFormProps) {
           value={formData.description}
           onChange={handleChange}
           rows={3}
-        />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="summary">Summary</Label>
-        <Textarea
-          id="summary"
-          name="summary"
-          value={formData.summary}
-          onChange={handleChange}
-          rows={2}
         />
       </div>
 
