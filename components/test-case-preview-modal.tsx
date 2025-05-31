@@ -19,16 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  X,
-  CheckCircle,
-  XCircle,
-  AlertTriangle,
-  Clock,
-  FileText,
-  Download,
-  Eye,
-} from "lucide-react";
+import { FileText, Download, Eye } from "lucide-react";
 import type { TestCase } from "@/types/project";
 
 interface TestCasePreviewModalProps {
@@ -53,6 +44,7 @@ export function TestCasePreviewModal({
     if (isOpen) {
       loadTestCases();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, projectId]);
 
   const loadTestCases = async () => {
@@ -80,58 +72,18 @@ export function TestCasePreviewModal({
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "passed":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case "failed":
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      case "warning":
-        return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
-      case "pending":
-        return <Clock className="h-4 w-4 text-gray-500" />;
-      default:
-        return <Clock className="h-4 w-4 text-gray-500" />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "passed":
-        return "bg-green-100 text-green-800";
-      case "failed":
-        return "bg-red-100 text-red-800";
-      case "warning":
-        return "bg-yellow-100 text-yellow-800";
-      case "pending":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case "high":
+      case "High":
         return "bg-red-100 text-red-800";
-      case "medium":
+      case "Medium":
         return "bg-yellow-100 text-yellow-800";
-      case "low":
+      case "Low":
         return "bg-green-100 text-green-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
   };
-
-  const getStatusCounts = () => {
-    const counts = testCases.reduce((acc, tc) => {
-      acc[tc.status] = (acc[tc.status] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    return counts;
-  };
-
-  const statusCounts = getStatusCounts();
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -142,13 +94,8 @@ export function TestCasePreviewModal({
               <FileText className="mr-2 h-6 w-6" />
               Test Cases Preview - Project {projectId}
             </DialogTitle>
-            <DialogDescription>
-              Quality control test cases and execution results
-            </DialogDescription>
+            <DialogDescription>Quality control test cases</DialogDescription>
           </div>
-          {/* <Button variant="ghost" size="sm" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button> */}
         </DialogHeader>
 
         {isLoading ? (
@@ -180,48 +127,6 @@ export function TestCasePreviewModal({
                   </div>
                 </CardContent>
               </Card>
-
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Passed</p>
-                      <p className="text-2xl font-bold text-green-600">
-                        {statusCounts.passed || 0}
-                      </p>
-                    </div>
-                    <CheckCircle className="h-8 w-8 text-green-500" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Failed</p>
-                      <p className="text-2xl font-bold text-red-600">
-                        {statusCounts.failed || 0}
-                      </p>
-                    </div>
-                    <XCircle className="h-8 w-8 text-red-500" />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium">Pending</p>
-                      <p className="text-2xl font-bold text-gray-600">
-                        {statusCounts.pending || 0}
-                      </p>
-                    </div>
-                    <Clock className="h-8 w-8 text-gray-500" />
-                  </div>
-                </CardContent>
-              </Card>
             </div>
 
             {/* Test Cases Table */}
@@ -233,10 +138,6 @@ export function TestCasePreviewModal({
                     <Button variant="outline" size="sm">
                       <Download className="mr-2 h-4 w-4" />
                       Export
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      <Eye className="mr-2 h-4 w-4" />
-                      Run All
                     </Button>
                   </div>
                 </CardTitle>
@@ -252,58 +153,39 @@ export function TestCasePreviewModal({
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Test ID</TableHead>
-                        <TableHead>Test Name</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>Test Case ID</TableHead>
+                        <TableHead>Module</TableHead>
+                        <TableHead>Title</TableHead>
                         <TableHead>Priority</TableHead>
-                        <TableHead>Execution Time</TableHead>
-                        <TableHead>Last Run</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {testCases.map((testCase) => (
                         <TableRow
-                          key={testCase.id}
+                          key={testCase.testCaseId}
                           className="hover:bg-muted/50"
                         >
                           <TableCell className="font-medium">
-                            {testCase.id.substring(0, 8)}
+                            {testCase.testCaseId}
                           </TableCell>
+                          <TableCell>{testCase.module}</TableCell>
                           <TableCell>
                             <div>
-                              <p className="font-medium">{testCase.testName}</p>
+                              <p className="font-medium">{testCase.title}</p>
                               <p className="text-sm text-muted-foreground">
-                                {testCase.description}
+                                {testCase.preconditions && (
+                                  <>Preconditions: {testCase.preconditions}</>
+                                )}
                               </p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline">{testCase.category}</Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center space-x-2">
-                              {getStatusIcon(testCase.status)}
-                              <Badge
-                                className={getStatusColor(testCase.status)}
-                              >
-                                {testCase.status.charAt(0).toUpperCase() +
-                                  testCase.status.slice(1)}
-                              </Badge>
                             </div>
                           </TableCell>
                           <TableCell>
                             <Badge
                               className={getPriorityColor(testCase.priority)}
                             >
-                              {testCase.priority.charAt(0).toUpperCase() +
-                                testCase.priority.slice(1)}
+                              {testCase.priority}
                             </Badge>
-                          </TableCell>
-                          <TableCell>{testCase.executionTime}</TableCell>
-                          <TableCell className="text-sm">
-                            {testCase.lastRun}
                           </TableCell>
                           <TableCell>
                             <Button
@@ -331,11 +213,10 @@ export function TestCasePreviewModal({
                 <DialogContent className="max-w-4xl">
                   <DialogHeader>
                     <DialogTitle className="flex items-center">
-                      {getStatusIcon(selectedTestCase.status)}
-                      <span className="ml-2">{selectedTestCase.testName}</span>
+                      {selectedTestCase.testCaseId} - {selectedTestCase.title}
                     </DialogTitle>
                     <DialogDescription>
-                      {selectedTestCase.description}
+                      Module: {selectedTestCase.module}
                     </DialogDescription>
                   </DialogHeader>
 
@@ -345,16 +226,14 @@ export function TestCasePreviewModal({
                         <h4 className="font-medium mb-2">Test Information</h4>
                         <div className="space-y-2 text-sm">
                           <div className="flex justify-between">
-                            <span>Test ID:</span>
+                            <span>Test Case ID:</span>
                             <span className="font-medium">
-                              {selectedTestCase.id.substring(0, 8)}
+                              {selectedTestCase.testCaseId}
                             </span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Category:</span>
-                            <Badge variant="outline">
-                              {selectedTestCase.category}
-                            </Badge>
+                            <span>Module:</span>
+                            <span>{selectedTestCase.module}</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Priority:</span>
@@ -367,30 +246,26 @@ export function TestCasePreviewModal({
                             </Badge>
                           </div>
                           <div className="flex justify-between">
-                            <span>Execution Time:</span>
-                            <span className="font-medium">
-                              {selectedTestCase.executionTime}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Last Run:</span>
-                            <span className="font-medium">
-                              {selectedTestCase.lastRun}
-                            </span>
+                            <span>Remarks:</span>
+                            <span>{selectedTestCase.remarks}</span>
                           </div>
                         </div>
                       </div>
-
                       <div>
-                        <h4 className="font-medium mb-2">Test Steps</h4>
-                        <ol className="list-decimal list-inside space-y-1 text-sm">
-                          {selectedTestCase.steps.map((step, index) => (
-                            <li key={index}>{step}</li>
-                          ))}
-                        </ol>
+                        <h4 className="font-medium mb-2">Preconditions</h4>
+                        <p className="text-sm bg-gray-50 p-3 rounded border">
+                          {selectedTestCase.preconditions}
+                        </p>
                       </div>
                     </div>
-
+                    <div>
+                      <h4 className="font-medium mb-2">Test Steps</h4>
+                      <ol className="list-decimal list-inside space-y-1 text-sm">
+                        {selectedTestCase.testSteps.map((step, idx) => (
+                          <li key={idx}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <h4 className="font-medium mb-2">Expected Result</h4>
@@ -398,32 +273,19 @@ export function TestCasePreviewModal({
                           {selectedTestCase.expectedResult}
                         </p>
                       </div>
-
                       <div>
                         <h4 className="font-medium mb-2">Actual Result</h4>
-                        <p
-                          className={`text-sm p-3 rounded border ${
-                            selectedTestCase.status === "passed"
-                              ? "bg-green-50"
-                              : selectedTestCase.status === "failed"
-                              ? "bg-red-50"
-                              : "bg-yellow-50"
-                          }`}
-                        >
+                        <p className="text-sm bg-yellow-50 p-3 rounded border">
                           {selectedTestCase.actualResult}
                         </p>
                       </div>
                     </div>
-
                     <div className="flex justify-end space-x-2">
                       <Button
                         variant="outline"
                         onClick={() => setSelectedTestCase(null)}
                       >
                         Close
-                      </Button>
-                      <Button className="btn-gradient text-white">
-                        Run Test
                       </Button>
                     </div>
                   </div>

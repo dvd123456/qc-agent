@@ -47,9 +47,31 @@ export function UploadTestCase({ projectId, onUploaded }: UploadTestCaseProps) {
       files.forEach((file) => formData.append("files", file));
 
       setShowPopup(true);
-      setProgress(10);
+      let percent = 1;
+      setProgress(percent);
 
-      // Upload file
+      let running = true;
+      let uploadDone = false;
+
+      const progressInterval = setInterval(() => {
+        if (!running) return;
+        if (percent < 20) {
+          percent = Math.min(percent + 10, 40);
+        } else if (percent < 40) {
+          percent = Math.min(percent + 1, 60);
+        } else if (percent < 60) {
+          percent = Math.min(percent + 5, 70);
+        } else if (percent < 70) {
+          percent = Math.min(percent + 2, 80);
+        } else if (percent < 80) {
+          percent = Math.min(percent + 1, 80);
+        }
+        setProgress(percent);
+        if (uploadDone && percent >= 80) {
+          clearInterval(progressInterval);
+        }
+      }, 100);
+
       const res = await fetch(`/api/projects/${projectId}/upload`, {
         method: "POST",
         body: formData,
@@ -58,18 +80,14 @@ export function UploadTestCase({ projectId, onUploaded }: UploadTestCaseProps) {
       const data = await res.json();
       if (data.success) {
         setFiles([]);
-        let percent = 20;
-        setProgress(percent);
+        uploadDone = true;
 
-        // Progress interval: tăng đều mỗi 200ms
-        let running = true;
-        const progressInterval = setInterval(() => {
-          percent = Math.min(percent + 1, 95);
+        if (percent < 80) {
+          percent = 80;
           setProgress(percent);
-          if (!running || percent >= 95) clearInterval(progressInterval);
-        }, 200);
+        }
 
-        // API check interval: 5s/lần
+        // Bắt đầu check test case
         const checkInterval = setInterval(async () => {
           const hasTestCase = await checkProjectHasTestCase(projectId);
           if (hasTestCase) {
@@ -83,11 +101,13 @@ export function UploadTestCase({ projectId, onUploaded }: UploadTestCaseProps) {
               onUploaded();
             }, 800);
           }
-        }, 5000);
+        }, 3000);
       } else {
+        running = false;
         setError(data.message || "Upload failed");
         setShowPopup(false);
         setIsUploading(false);
+        clearInterval(progressInterval);
       }
     } catch (err) {
       setError("Upload failed. Please try again.");
@@ -123,7 +143,7 @@ export function UploadTestCase({ projectId, onUploaded }: UploadTestCaseProps) {
         </div>
         <input
           type="file"
-          accept=".csv,.xlsx,.xls,.json"
+          accept=".dotx,.pdf,.csv,.xlsx,.xls,.json"
           multiple
           onChange={handleFileChange}
           className="mb-2"

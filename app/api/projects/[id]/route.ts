@@ -5,11 +5,11 @@ import Project, { ProjectDocument } from "@/models/project";
 // GET - Fetch specific project
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
   try {
     await dbConnect();
-    const { id } = params;
+    const { id } = context.params;
     const project = await Project.findById(id).lean();
 
     if (!project) {

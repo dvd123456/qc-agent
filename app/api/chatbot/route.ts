@@ -55,9 +55,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const projectDetail = `Tên dự án: ${project.name}. Mô tả: ${JSON.stringify(
-      project.metadata
-    )}.`;
+    const projectDetail = `Tên dự án: ${project.name}. 
+    Mô tả: ${JSON.stringify(project.metadata)}
+    Summary: ${project.summary}.`;
 
     const history = await Chat.find({ threadId, projectId })
       .sort({ timestamp: 1 })

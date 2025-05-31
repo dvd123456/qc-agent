@@ -15,17 +15,15 @@ export interface Project {
 }
 
 export interface TestCase {
-  id: string;
-  testName: string;
-  description: string;
-  status: "passed" | "failed" | "pending" | "warning";
-  priority: "high" | "medium" | "low";
-  category: string;
-  executionTime: string;
-  lastRun: string;
+  testCaseId: string;
+  module: string;
+  title: string;
+  preconditions: string;
+  testSteps: string[];
   expectedResult: string;
   actualResult: string;
-  steps: string[];
+  priority: "High | Medium | Low";
+  remarks: string;
 }
 
 export interface CreateProjectInput {

@@ -50,9 +50,32 @@ export function ChatPageClient({ projectId }: ChatPageClientProps) {
     router.push("/dashboard");
   };
 
-  const handleExportFile = () => {
-    // This would be replaced with actual export functionality
-    alert("Export file functionality would be implemented here");
+  const handleExportFile = async () => {
+    try {
+      const res = await fetch(`/api/projects/export?projectId=${projectId}`);
+      if (!res.ok) {
+        throw new Error("Export failed");
+      }
+      const blob = await res.blob();
+      // Lấy tên file từ header nếu có
+      const disposition = res.headers.get("Content-Disposition");
+      let fileName = "test-cases.json";
+      if (disposition) {
+        const match = disposition.match(/filename="(.+)"/);
+        if (match) fileName = match[1];
+      }
+      // Tạo link download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert("Export failed!");
+    }
   };
 
   const handlePreviewFile = () => {
