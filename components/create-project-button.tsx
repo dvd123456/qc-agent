@@ -12,10 +12,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ProjectForm } from "@/components/project-form";
-import type { Project } from "@/types/project";
+import { ProjectDocument } from "@/models/project";
 
 interface CreateProjectButtonProps {
-  onProjectCreated?: (project: Project) => void;
+  onProjectCreated?: (project: ProjectDocument) => void;
 }
 
 export function CreateProjectButton({
@@ -23,7 +23,7 @@ export function CreateProjectButton({
 }: CreateProjectButtonProps) {
   const [open, setOpen] = useState(false);
 
-  const handleProjectCreated = (project: Project) => {
+  const handleProjectCreated = (project: ProjectDocument) => {
     setOpen(false);
     onProjectCreated?.(project);
   };

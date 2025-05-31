@@ -142,7 +142,7 @@ export function ProjectDetailsModal({
                 <div>
                   <p className="text-sm font-medium">Test Cases</p>
                   <p className="text-sm text-muted-foreground">
-                    {project.testCase?.count || 0} test cases
+                    {project.testCase?.length || 0} test cases
                   </p>
                 </div>
               </div>
@@ -160,25 +160,25 @@ export function ProjectDetailsModal({
           </div>
 
           {/* Test Case Information */}
-          {project.testCase?.hasTestCases && (
+          {project.testCase && (
             <div className="border rounded-lg p-4 bg-muted/50">
               <h3 className="font-semibold mb-2">Test Case Summary</h3>
               <div className="grid grid-cols-3 gap-4 text-center">
                 <div>
                   <p className="text-2xl font-bold text-green-600">
-                    {Math.floor((project.testCase.count || 0) * 0.7)}
+                    {Math.floor((project.testCase.length || 0) * 0.7)}
                   </p>
                   <p className="text-sm text-muted-foreground">Passed</p>
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-red-600">
-                    {Math.floor((project.testCase.count || 0) * 0.2)}
+                    {Math.floor((project.testCase.length || 0) * 0.2)}
                   </p>
                   <p className="text-sm text-muted-foreground">Failed</p>
                 </div>
                 <div>
                   <p className="text-2xl font-bold text-yellow-600">
-                    {Math.floor((project.testCase.count || 0) * 0.1)}
+                    {Math.floor((project.testCase.length || 0) * 0.1)}
                   </p>
                   <p className="text-sm text-muted-foreground">Pending</p>
                 </div>

@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ProjectList } from "@/components/project-list";
 import { CreateProjectButton } from "@/components/create-project-button";
-import type { Project } from "@/types/project";
+import { ProjectDocument } from "@/models/project";
 
 export function DashboardClient() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<ProjectDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,9 +19,6 @@ export function DashboardClient() {
     try {
       setIsLoading(true);
       setError(null);
-
-      console.log("Dashboard: Fetching projects...");
-
       const response = await fetch("/api/projects", {
         method: "GET",
         headers: {
@@ -30,29 +27,22 @@ export function DashboardClient() {
         cache: "no-store", // Ensure fresh data
       });
 
-      console.log("Dashboard: Response status:", response.status);
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log("Dashboard: Response data:", data);
 
       if (!data.success) {
         throw new Error(data.message || "Failed to fetch projects");
       }
 
       const projectsData = data.data || [];
-      console.log("Dashboard: Setting projects:", projectsData);
       setProjects(projectsData);
     } catch (error) {
-      console.error("Dashboard: Failed to fetch projects:", error);
       setError(
         error instanceof Error ? error.message : "Failed to load projects"
       );
-
-      // Set empty array as fallback
       setProjects([]);
     } finally {
       setIsLoading(false);
@@ -60,18 +50,15 @@ export function DashboardClient() {
   };
 
   const handleRefresh = () => {
-    console.log("Dashboard: Refreshing projects...");
     fetchProjects();
   };
 
-  const handleProjectCreated = (newProject: Project) => {
-    console.log("Dashboard: New project created:", newProject);
-    setProjects((prev) => [newProject, ...prev]);
+  const handleProjectCreated = () => {
+    fetchProjects();
   };
 
-  const handleProjectDeleted = (projectId: string) => {
-    console.log("Dashboard: Deleting project:", projectId);
-    setProjects((prev) => prev.filter((p) => p.id !== projectId));
+  const handleProjectDeleted = () => {
+    fetchProjects();
   };
 
   return (

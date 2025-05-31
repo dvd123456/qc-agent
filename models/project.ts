@@ -1,5 +1,17 @@
 import mongoose, { Schema, Document } from "mongoose";
 
+export interface TestCase {
+  testCaseId: string;
+  module: string;
+  title: string;
+  preconditions: string;
+  testSteps: string[];
+  expectedResult: string;
+  actualResult: string;
+  priority: "High | Medium | Low";
+  remarks: string;
+}
+
 export interface ProjectDocument extends Document {
   name: string;
   metadata?: {
@@ -8,7 +20,7 @@ export interface ProjectDocument extends Document {
     endDate?: Date;
   };
   summary?: string;
-  testCase: object[];
+  testCase: TestCase[];
   createdAt: Date;
   updatedAt: Date;
   status: string;

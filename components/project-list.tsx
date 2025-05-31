@@ -28,20 +28,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ProjectDetailsModal } from "@/components/project-details-modal";
-import type { Project } from "@/types/project";
 import Link from "next/link";
+import { ProjectDocument } from "@/models/project";
 
 interface ProjectListProps {
-  projects: Project[];
-  onProjectDeleted: (projectId: string) => void;
+  projects: ProjectDocument[];
+  onProjectDeleted: () => void;
 }
 
 export function ProjectList({ projects, onProjectDeleted }: ProjectListProps) {
-  console.log("🚀 ~ ProjectList ~ projects:", projects);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [selectedProject, setSelectedProject] = useState<ProjectDocument>();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleViewDetails = (project: Project) => {
+  const handleViewDetails = (project: ProjectDocument) => {
     setSelectedProject(project);
     setIsModalOpen(true);
   };
@@ -49,10 +48,16 @@ export function ProjectList({ projects, onProjectDeleted }: ProjectListProps) {
   const handleDeleteProject = async (projectId: string) => {
     if (confirm("Are you sure you want to delete this project?")) {
       try {
-        // In a real app, this would call the API
-        onProjectDeleted(projectId);
+        const res = await fetch(`/api/projects/${projectId}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) {
+          throw new Error("Failed to delete project");
+        }
+        onProjectDeleted();
       } catch (error) {
         console.error("Failed to delete project:", error);
+        alert("Failed to delete project!");
       }
     }
   };
@@ -83,7 +88,8 @@ export function ProjectList({ projects, onProjectDeleted }: ProjectListProps) {
     }
   };
 
-  const calculateProgress = (startDate: string, endDate: string): number => {
+  const calculateProgress = (startDate?: Date, endDate?: Date): number => {
+    if (!startDate || !endDate) return 0;
     const start = new Date(startDate).getTime();
     const end = new Date(endDate).getTime();
     const current = new Date().getTime();
@@ -115,8 +121,8 @@ export function ProjectList({ projects, onProjectDeleted }: ProjectListProps) {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {projects.map((project) => {
           const progress = calculateProgress(
-            project.metadata.startDate,
-            project.metadata.endDate
+            project?.metadata?.startDate,
+            project?.metadata?.endDate
           );
 
           return (
@@ -131,7 +137,7 @@ export function ProjectList({ projects, onProjectDeleted }: ProjectListProps) {
                       {project.name}
                     </CardTitle>
                     <CardDescription className="line-clamp-2">
-                      {project.metadata.description}
+                      {project?.metadata?.description}
                     </CardDescription>
                   </div>
                   <DropdownMenu>
@@ -199,14 +205,14 @@ export function ProjectList({ projects, onProjectDeleted }: ProjectListProps) {
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span className="text-muted-foreground">
                       {new Date(
-                        project.metadata.startDate
+                        project?.metadata?.startDate ?? ""
                       ).toLocaleDateString()}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <FileText className="h-4 w-4 text-muted-foreground" />
                     <span className="text-muted-foreground">
-                      {project.testCase?.count || 0} test cases
+                      {project.testCase?.length || 0} test cases
                     </span>
                   </div>
                 </div>
@@ -229,7 +235,7 @@ export function ProjectList({ projects, onProjectDeleted }: ProjectListProps) {
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
-          setSelectedProject(null);
+          setSelectedProject(undefined);
         }}
       />
     </>

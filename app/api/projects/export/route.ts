@@ -2,18 +2,39 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/mongodb";
 import Project from "@/models/project";
 
+const headers = [
+  "Test Case ID",
+  "Module",
+  "Title",
+  "Preconditions",
+  "Test Steps",
+  "Expected Result",
+  "Actual Result",
+  "Priority",
+  "Remarks",
+];
+
 function toCSV(testCases: any[]) {
   if (!testCases.length) return "";
-  const headers = Object.keys(testCases[0]);
-  const escape = (val: any) =>
-    `"${String(val).replace(/"/g, '""').replace(/\n/g, " ")}"`;
-  const rows = testCases.map((tc) =>
-    headers
-      .map((h) =>
-        Array.isArray(tc[h]) ? escape(tc[h].join(" | ")) : escape(tc[h] ?? "")
-      )
-      .join(",")
-  );
+
+  const escape = (val: any) => `"${String(val).replace(/"/g, '""')}"`;
+
+  const rows: string[] = [];
+  for (const tc of testCases) {
+    rows.push(
+      [
+        escape(tc.testCaseId),
+        escape(tc.module),
+        escape(tc.title),
+        escape(tc.preconditions),
+        escape(Array.isArray(tc.testSteps) ? tc.testSteps.join("\n") : ""),
+        escape(tc.expectedResult),
+        escape(tc.actualResult),
+        escape(tc.priority),
+        escape(tc.remarks),
+      ].join(",")
+    );
+  }
   return [headers.join(","), ...rows].join("\n");
 }
 
