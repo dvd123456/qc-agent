@@ -20,18 +20,18 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { FileText, Download, Eye } from "lucide-react";
-import type { TestCase } from "@/types/project";
+import { ProjectDocument, TestCase } from "@/models/project";
 
 interface TestCasePreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  projectId: string;
+  projectData?: ProjectDocument;
 }
 
 export function TestCasePreviewModal({
   isOpen,
   onClose,
-  projectId,
+  projectData,
 }: TestCasePreviewModalProps) {
   const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(
     null
@@ -45,7 +45,7 @@ export function TestCasePreviewModal({
       loadTestCases();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, projectId]);
+  }, [isOpen, projectData]);
 
   const loadTestCases = async () => {
     try {
@@ -53,7 +53,7 @@ export function TestCasePreviewModal({
       setError(null);
 
       // Fetch project data to get test cases
-      const response = await fetch(`/api/projects/${projectId}`);
+      const response = await fetch(`/api/projects/${projectData?._id}`);
       const data = await response.json();
 
       if (!data.success) {
@@ -85,6 +85,36 @@ export function TestCasePreviewModal({
     }
   };
 
+  const handleExportFile = async () => {
+    try {
+      const res = await fetch(
+        `/api/projects/export?projectId=${projectData?._id}`
+      );
+      if (!res.ok) {
+        throw new Error("Export failed");
+      }
+      const blob = await res.blob();
+      // Lấy tên file từ header nếu có
+      const disposition = res.headers.get("Content-Disposition");
+      let fileName = "test-cases.json";
+      if (disposition) {
+        const match = disposition.match(/filename="(.+)"/);
+        if (match) fileName = match[1];
+      }
+      // Tạo link download
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      alert("Export failed!");
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
@@ -92,7 +122,7 @@ export function TestCasePreviewModal({
           <div>
             <DialogTitle className="text-2xl font-bold text-primary flex items-center">
               <FileText className="mr-2 h-6 w-6" />
-              Test Cases Preview - Project {projectId}
+              Test Cases Preview - {projectData?.name}
             </DialogTitle>
             <DialogDescription>Quality control test cases</DialogDescription>
           </div>
@@ -135,7 +165,11 @@ export function TestCasePreviewModal({
                 <CardTitle className="flex items-center justify-between">
                   <span>Test Cases</span>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportFile}
+                    >
                       <Download className="mr-2 h-4 w-4" />
                       Export
                     </Button>

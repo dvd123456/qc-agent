@@ -143,7 +143,7 @@ export function UploadTestCase({ projectId, onUploaded }: UploadTestCaseProps) {
         </div>
         <input
           type="file"
-          accept=".dotx,.pdf,.csv,.xlsx,.xls,.json"
+          accept=".docx,.pdf,.csv,.xlsx,.xls,.json"
           multiple
           onChange={handleFileChange}
           className="mb-2"

@@ -50,34 +50,6 @@ export function ChatPageClient({ projectId }: ChatPageClientProps) {
     router.push("/dashboard");
   };
 
-  const handleExportFile = async () => {
-    try {
-      const res = await fetch(`/api/projects/export?projectId=${projectId}`);
-      if (!res.ok) {
-        throw new Error("Export failed");
-      }
-      const blob = await res.blob();
-      // Lấy tên file từ header nếu có
-      const disposition = res.headers.get("Content-Disposition");
-      let fileName = "test-cases.json";
-      if (disposition) {
-        const match = disposition.match(/filename="(.+)"/);
-        if (match) fileName = match[1];
-      }
-      // Tạo link download
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      alert("Export failed!");
-    }
-  };
-
   const handlePreviewFile = () => {
     setShowTestCasePreview(true);
   };
@@ -104,7 +76,7 @@ export function ChatPageClient({ projectId }: ChatPageClientProps) {
       <header className="border-b border-primary/10 p-4 bg-gradient-card">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center space-x-4 min-w-0">
-            <Button size="sm" onClick={handleBackToDashboard}>
+            <Button size="sm" onClick={() => handleBackToDashboard()}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back
             </Button>
@@ -120,10 +92,6 @@ export function ChatPageClient({ projectId }: ChatPageClientProps) {
             <Button size="sm" onClick={handlePreviewFile}>
               <Eye className="mr-2 h-4 w-4" />
               Preview Test Cases
-            </Button>
-            <Button size="sm" onClick={handleExportFile}>
-              <FileDown className="mr-2 h-4 w-4" />
-              Export File
             </Button>
           </div>
         </div>
@@ -144,7 +112,7 @@ export function ChatPageClient({ projectId }: ChatPageClientProps) {
       <TestCasePreviewModal
         isOpen={showTestCasePreview}
         onClose={() => setShowTestCasePreview(false)}
-        projectId={projectId}
+        projectData={projectData}
       />
     </div>
   );
